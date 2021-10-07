@@ -72,7 +72,7 @@ export NACStackCreationFailed=301
     RESULT=$?
     if [ $RESULT -eq 0 ]; then
         echo "INFO ::: git clone SUCCESS"
-        cd "${GIT_REPO_NAME}"
+        # cd "${GIT_REPO_NAME}"
     elif [ $RESULT -eq 128 ]; then
         # echo "ERROR: Destination path $GIT_REPO_NAME already exists and is not an empty directory."
         exit 0
@@ -82,10 +82,8 @@ export NACStackCreationFailed=301
         COMMAND="git pull origin main"
         $COMMAND
     fi
-    # cd "${GIT_REPO_NAME}"
-    # pwd
-    cd ..
-    # pwd
+    pwd
+    ls -l
 ########################### Completed - Git Clone  ###############################################################
     echo "copy TFVARS file to $(pwd)/${GIT_REPO_NAME}/${TFVARS_FILE}"
 
@@ -102,7 +100,7 @@ export NACStackCreationFailed=301
     echo "NAC PROVISIONING ::: Initialized Terraform Libraries/Dependencies"
     echo "NAC PROVISIONING ::: STARTED ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
     COMMAND="terraform apply -var-file=${TFVARS_FILE} -auto-approve"
-    $COMMAND
+    # $COMMAND
     if [ $? -eq 0 ]; then
             echo "NAC PROVISIONING ::: Terraform apply ::: COMPLETED . . . . . . . . . . . . . . . . . . ."
 		else
