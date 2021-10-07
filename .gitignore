@@ -1,0 +1,7 @@
+# .gitignore
+# *.tfvars
+*tfstate*
+*.txt
+*.zip
+*lock*
+.terraform
