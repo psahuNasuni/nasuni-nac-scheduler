@@ -19,8 +19,6 @@
 ####             a- User need to provide/Update valid values for below keys:
 ####
 #############################################################################################
-
-
 set -e
 
 START=$(date +%s)
@@ -100,7 +98,7 @@ export NACStackCreationFailed=301
     echo "NAC PROVISIONING ::: Initialized Terraform Libraries/Dependencies"
     echo "NAC PROVISIONING ::: STARTED ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
     COMMAND="terraform apply -var-file=${TFVARS_FILE} -auto-approve"
-    # $COMMAND
+    $COMMAND
     if [ $? -eq 0 ]; then
             echo "NAC PROVISIONING ::: Terraform apply ::: COMPLETED . . . . . . . . . . . . . . . . . . ."
 		else
@@ -152,13 +150,23 @@ export NACStackCreationFailed=301
         echo "Lambda execution COMPLETED."
         echo "STARTED ::: CLEANUP NAC STACK and dependent resources . . . . . . . . . . . . . . . . . . . . ."
         # RUN terraform destroy to CLEANUP NAC STACK and dependent resources
-        COMMAND="terraform destroy -var-file=${TFVARS_} -auto-approve"
+        COMMAND="terraform destroy -var-file=${TFVARS_FILE} -auto-approve"
         $COMMAND
         echo "COMPLETED ::: CLEANUP NAC STACK and dependent resources ! ! ! ! "
         exit 0
     fi
+	END=$(date +%s)
+	secs=$((END - START))
+	DIFF=$(printf '%02dh:%02dm:%02ds\n' $((secs/3600)) $((secs%3600/60)) $((secs%60)))
+	echo "Total execution Time ::: $DIFF"
+	exit 0
 
 } || {
+    END=$(date +%s)
+	secs=$((END - START))
+	DIFF=$(printf '%02dh:%02dm:%02ds\n' $((secs/3600)) $((secs%3600/60)) $((secs%60)))
+	echo "Total execution Time ::: $DIFF"
+	exit 0
     echo "Failed NAC Povisioning" && throw $NACStackCreationFailed
 
 }
