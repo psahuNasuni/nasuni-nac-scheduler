@@ -1,5 +1,5 @@
- .gitignore
- *.tfvars
+.gitignore
+*.tfvars
 *tfstate*
 *.txt
 *.zip
@@ -9,3 +9,4 @@ prov.sh
 nac-es
 pre-run-rhel.sh
 pre-run-ubuntu.sh
+ohio-nac.tfvars

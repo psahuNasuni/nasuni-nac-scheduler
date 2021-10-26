@@ -12,29 +12,6 @@ AWS_PROFILE="nasuni"
 AWS_REGION=""
 AWS_ACCESS_KEY_ID=""
 AWS_SECRET_ACCESS_KEY=""
-# TFVARS_FILE=$2
-# if [ ! -f "$TFVARS_FILE" ]; then
-# 	echo "ERROR ::: Required TFVARS file is missing"
-# 	exit 1
-# else
-# 	while IFS='=' read -r key value; do
-# 		key=$(echo "$key")
-# 		echo "key ::::: ${key} ~ ${value}"
-# 		if [[ $(echo "${key}" | xargs) == "region" ]]; then
-# 			AWS_REGION=$(echo "${value}" | xargs)
-# 		fi
-# 		if [[ $(echo "${key}" | xargs) == "volume_name" ]]; then
-# 			NMC_VOLUME_NAME=$(echo "${value}" | xargs)
-# 		fi
-# 		if [[ $(echo "${key}" | xargs) == "aws_profile" ]]; then
-# 			AWS_PROFILE=$(echo "${value}" | xargs)
-# 			echo "$AWS_PROFILE"
-# 			if [[ "$(aws configure list-profiles | grep "${AWS_PROFILE}")" == "" ]]; then
-# 				echo "ERROR ::: AWS profile does not exists. To Create AWS PROFILE, Run cli command - aws configure "
-# 			fi
-# 		fi
-# 	done <"$TFVARS_FILE"
-# fi
 
 if [[ "$(aws configure list-profiles | grep "${AWS_PROFILE}")" == "" ]]; then
 	echo "ERROR ::: AWS profile $AWS_PROFILE does not exists. To Create AWS PROFILE, Run cli command - aws configure "
@@ -49,77 +26,96 @@ echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID"
 echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY"
 echo "AWS_REGION=$AWS_REGION"
 echo "NMC_VOLUME_NAME=$NMC_VOLUME_NAME"
-# exit 1
-# cp -f $2 $NMC_VOLUME_NAME.tfvars
 
+PUB_IP_ADDR=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACManager'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" | grep -e "PublicIP" |cut -d":" -f 2|tr -d '"'|tr -d ' ') 
+echo "PUB_IP_ADDR ::: ${PUB_IP_ADDR}"
 
-# rm -f file.txt
-# if [ $? -eq 0 ]; then
-# 	echo OK
-# else
-# 	echo FAIL
-# 	exit 0
-# fi
-NACMANAGER_AVBL=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACManager'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" | grep -e "NACManager" -e "running") 
+###################### NACMAnager is Available ##############################
+if [ "$PUB_IP_ADDR" != "" ];then 
+	echo "NACMAnager is Available. IP Address: $PUB_IP_ADDR"
 
-echo "NACMANAGER_AVBL $AWS_REGION ::: ${NACMANAGER_AVBL}"
+	# Temporary Code Till alternative for PEM file is found
+	if [[ ${AWS_REGION} == "us-east-2" ]]; then
+		PEM="nac-manager.pem"
+	elif [[ "${AWS_REGION}" == "us-east-1" ]]; then
+		PEM="nac-manager-nv.pem"
+	fi
 
-exit 1
-# aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACManager'" "Name=instance-state-name,Values=running" > file.txt 
+	echo "Public IP Address:- $PUB_IP_ADDR"
+	echo "ssh -i "$PEM" ubuntu@$PUB_IP_ADDR"
+	### Create TFVARS File
+	rm -rf $NMC_VOLUME_NAME.tfvars
+	echo "aws_profile="$AWS_PROFILE >> $NMC_VOLUME_NAME.tfvars
+	echo "region="$AWS_REGION >> $NMC_VOLUME_NAME.tfvars
+	echo "volume_name="$NMC_VOLUME_NAME >> $NMC_VOLUME_NAME.tfvars
+	echo "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW"
 
-# data=$(grep -e "NACManager" -e "running" file.txt)
-if [ "$NACMANAGER_AVBL" != "" ]
-then
-	echo "Instance is present"
-	PUB_IP_ADDR=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACManager'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" | grep -e "PublicIP") 
-	# PUB_IP_ADDR=$(grep  PublicIP file.txt|cut -c 25-|tr -d '"')
+	### Create Directory for each Volume 
+	ssh -i "$PEM" ubuntu@$PUB_IP_ADDR "[ ! -d $NMC_VOLUME_NAME ] && mkdir $NMC_VOLUME_NAME " -y
+	echo "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR"
+	### Copy TFVARS and provision_nac.sh to NACManager
+	scp -i "$PEM" provision_nac.sh "$NMC_VOLUME_NAME".tfvars ubuntu@$PUB_IP_ADDR:~/$NMC_VOLUME_NAME
 
-	# data1=`cut -b file.txt|grep  PublicIP `
-	echo "Public IP Address:-"$PUB_IP_ADDR
-	echo "ssh -i "$1" ubuntu@$PUB_IP_ADDR"
-	echo "Downloading sch-nac code"
-	GIT_REPO_SCH=https://github.com/psahuNasuni/sch-nac.git
-	Download_git_code $GIT_REPO_SCH
-	cd ../
-	GIT_REPO_SCH_NAME=$(echo ${GIT_REPO_SCH} | sed 's/.*\/\([^ ]*\/[^.]*\).*/\1/' | cut -d "/" -f 2)
-	echo "*****copy "$NMC_VOLUME_NAME.tfvars" file to $GIT_REPO_SCH_NAME folder"
-	cp -f $NMC_VOLUME_NAME.tfvars $GIT_REPO_SCH_NAME/
-	tar -czf $GIT_REPO_SCH_NAME.tar.gz $GIT_REPO_SCH_NAME/
-	echo "*****copy $GIT_REPO_SCH_NAME file to remote machine "
-
-	##ssh -i "$1" ubuntu@$PUB_IP_ADDR "mkdir $NMC_VOLUME_NAME "
-	ssh -i "$1" ubuntu@$PUB_IP_ADDR "[ ! -d $NMC_VOLUME_NAME ] && mkdir $NMC_VOLUME_NAME "
-	ssh -i "$1" ubuntu@$PUB_IP_ADDR "echo /home/ubuntu/$NMC_VOLUME_NAME"
-	scp -i "$1" $GIT_REPO_SCH_NAME.tar.gz ubuntu@$PUB_IP_ADDR:/home/ubuntu/$NMC_VOLUME_NAME
-	echo "*****extract $GIT_REPO_SCH_NAME.tar.gz file to remote machine "
-	ssh -i "$1" ubuntu@$PUB_IP_ADDR "tar -xzf /home/ubuntu/$NMC_VOLUME_NAME/$GIT_REPO_SCH_NAME.tar.gz -C /home/ubuntu/$NMC_VOLUME_NAME/"
-	echo "Exporting variables AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY "
-	output_format="json"
-	ssh -i "$1" ubuntu@$PUB_IP_ADDR "export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID ; export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY;export AWS_REGION=$AWS_REGION;export output_format=$output_format"
-	# ssh -i "$1" ubuntu@$PUB_IP_ADDR "echo  $AWS_ACCESS_KEY_ID "
-	cron_vol=`ssh -i "$1" ubuntu@$PUB_IP_ADDR "crontab -l |grep /home/ubuntu/$NMC_VOLUME_NAME/$GIT_REPO_SCH_NAME/$NMC_VOLUME_NAME.tfvars"`
+	### Check If CRON JOB is running for a specific VOLUME_NAME
+	CRON_VOL=$(ssh -i "$PEM" ubuntu@"$PUB_IP_ADDR" "crontab -l |grep /home/ubuntu/$NMC_VOLUME_NAME/$NMC_VOLUME_NAME.tfvars")
 	#*/2 * * * * sh /home/ubuntu/file.sh SA-ES-VOL
-	if [ "$cron_vol" != "" ]
+	if [ "$CRON_VOL" != "" ]
 	then
+		### DO Nothing. CRON JOB takes care of NAC Provisioning
 		echo "::::crontab does not require volume entry.As it is already present.:::::"
-
 	else
+		### Set up a new CRON JOB for NAC Provisioning
+
 		echo 'Setting cronjob for '$NMC_VOLUME_NAME.tfvars' as it is not present '
-		#ssh -i "$1" ubuntu@$PUB_IP_ADDR 'cat <(crontab -l) <(echo "* * * * * * sh /home/ubuntu/file.sh") | crontab -'
-		#echo "Volume Name=$2"
-		
-		#scp -ir  "$1" sch-nac/ ubuntu@$PUB_IP_ADDR:/home/ubuntu/
-		
-		ssh -i "$1" ubuntu@$PUB_IP_ADDR "(crontab -l ; echo '*/15 * * * * sh /home/ubuntu/$NMC_VOLUME_NAME/sch-nac/provision_nac.sh  /home/ubuntu/$NMC_VOLUME_NAME/sch-nac/$NMC_VOLUME_NAME.tfvars') | sort - | uniq - | crontab -"
+			
+		ssh -i "$PEM" ubuntu@$PUB_IP_ADDR "(crontab -l ; echo '*/15 * * * * sh /home/ubuntu/$NMC_VOLUME_NAME/provision_nac.sh  /home/ubuntu/$NMC_VOLUME_NAME/$NMC_VOLUME_NAME.tfvars') | sort - | uniq - | crontab -"
 		if [ $? -eq 0 ]; then
-			echo OK
-		else
-			echo FAIL
+			echo "CRON JOB Scheduled for NMC VOLUME_NAME:: $NMC_VOLUME_NAME"
 			exit 0
+		else
+			echo "FAILED to Schedule CRON JOB for NMC VOLUME_NAME:: $NMC_VOLUME_NAME"
+			exit 1
 		fi
-	#echo '$(echo "*/2 * * * * ubuntu sh /home/ubuntu/file.sh" ; ssh -i "$1" ubuntu@$PUB_IP_ADDR crontab -l 2>&1)' | ssh -i "$1"  ubuntu@$PUB_IP_ADDR "crontab -"
-	fi 
-else
+	fi
+
+	
+exit 1
+	
+	# ssh -i "$PEM" ubuntu@$PUB_IP_ADDR "cd ~/$NMC_VOLUME_NAME"
+	# ssh -i "$PEM" ubuntu@$PUB_IP_ADDR "echo ~/$NMC_VOLUME_NAME"
+
+	# scp -i "$PEM" $GIT_REPO_SCH_NAME.tar.gz ubuntu@$PUB_IP_ADDR:/home/ubuntu/$NMC_VOLUME_NAME
+	# echo "*****extract $GIT_REPO_SCH_NAME.tar.gz file to remote machine "
+	# ssh -i "$PEM" ubuntu@$PUB_IP_ADDR "tar -xzf /home/ubuntu/$NMC_VOLUME_NAME/$GIT_REPO_SCH_NAME.tar.gz -C /home/ubuntu/$NMC_VOLUME_NAME/"
+	# echo "Exporting variables AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY "
+	# output_format="json"
+	# ssh -i "$1" ubuntu@$PUB_IP_ADDR "export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID ; export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY;export AWS_REGION=$AWS_REGION;export output_format=$output_format"
+	# # ssh -i "$1" ubuntu@$PUB_IP_ADDR "echo  $AWS_ACCESS_KEY_ID "
+	# cron_vol=$(ssh -i "$1" ubuntu@$PUB_IP_ADDR "crontab -l |grep /home/ubuntu/$NMC_VOLUME_NAME/$GIT_REPO_SCH_NAME/$NMC_VOLUME_NAME.tfvars")
+	# #*/2 * * * * sh /home/ubuntu/file.sh SA-ES-VOL
+	# if [ "$cron_vol" != "" ]
+	# then
+	# 	echo "::::crontab does not require volume entry.As it is already present.:::::"
+
+	# else
+	# 	echo 'Setting cronjob for '$NMC_VOLUME_NAME.tfvars' as it is not present '
+	# 	#ssh -i "$1" ubuntu@$PUB_IP_ADDR 'cat <(crontab -l) <(echo "* * * * * * sh /home/ubuntu/file.sh") | crontab -'
+	# 	#echo "Volume Name=$2"
+		
+	# 	#scp -ir  "$1" sch-nac/ ubuntu@$PUB_IP_ADDR:/home/ubuntu/
+		
+	# 	ssh -i "$1" ubuntu@$PUB_IP_ADDR "(crontab -l ; echo '*/15 * * * * sh /home/ubuntu/$NMC_VOLUME_NAME/sch-nac/provision_nac.sh  /home/ubuntu/$NMC_VOLUME_NAME/sch-nac/$NMC_VOLUME_NAME.tfvars') | sort - | uniq - | crontab -"
+	# 	if [ $? -eq 0 ]; then
+	# 		echo OK
+	# 	else
+	# 		echo FAIL
+	# 		exit 0
+	# 	fi
+	# #echo '$(echo "*/2 * * * * ubuntu sh /home/ubuntu/file.sh" ; ssh -i "$1" ubuntu@$PUB_IP_ADDR crontab -l 2>&1)' | ssh -i "$1"  ubuntu@$PUB_IP_ADDR "crontab -"
+	# fi 
+
+###################### NACMAnager is NOT Available ##############################
+else 
 	## "NACManager is not present. Creating new EC2 machine."
 	
 	echo "Instance is not present. Creating new EC2 machine."
