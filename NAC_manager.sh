@@ -1,103 +1,82 @@
 #!/bin/bash
 
-if [ "$1" == "" ]
+NMC_VOLUME_NAME="$1"
+
+if [ "$NMC_VOLUME_NAME" == "" ]
 then 
-	echo "Pass the .pem file path as a 1st param"
-	exit 0
+	echo "Please Provide the mandatory NMC Volume Name"
+	exit 1
 fi
 
-if [ "$2" == "" ]
-then 
-	echo "Pass the .tfvars file"
-	exit 0
-fi
-
-Download_git_code(){
-	echo "INFO ::: Start - Git Clone "
-    ### Download Provisioning Code from GitHub
-    GIT_REPO="$1"
-    GIT_REPO_NAME=$(echo ${GIT_REPO} | sed 's/.*\/\([^ ]*\/[^.]*\).*/\1/' | cut -d "/" -f 2)
-    echo "$GIT_REPO"
-    echo "GIT_REPO_NAME $GIT_REPO_NAME"
-    pwd
-    ls
-    rm -rf "${GIT_REPO_NAME}"
-    COMMAND="git clone -b main ${GIT_REPO}"
-    $COMMAND
-    RESULT=$?
-    if [ $RESULT -eq 0 ]; then
-        echo "INFO ::: git clone SUCCESS"
-        cd "${GIT_REPO_NAME}"
-    elif [ $RESULT -eq 128 ]; then    
-        cd "${GIT_REPO_NAME}"
-        echo "$GIT_REPO_NAME"
-        COMMAND="git pull origin main"
-        $COMMAND
-	fi
-
-
-}
-
-
-AWS_PROFILE=""
+AWS_PROFILE="nasuni"
 AWS_REGION=""
-NMC_VOLUME_NAME=""
 AWS_ACCESS_KEY_ID=""
 AWS_SECRET_ACCESS_KEY=""
-TFVARS_FILE=$2
-if [ ! -f "$TFVARS_FILE" ]; then
-	echo "ERROR ::: Required TFVARS file is missing"
+# TFVARS_FILE=$2
+# if [ ! -f "$TFVARS_FILE" ]; then
+# 	echo "ERROR ::: Required TFVARS file is missing"
+# 	exit 1
+# else
+# 	while IFS='=' read -r key value; do
+# 		key=$(echo "$key")
+# 		echo "key ::::: ${key} ~ ${value}"
+# 		if [[ $(echo "${key}" | xargs) == "region" ]]; then
+# 			AWS_REGION=$(echo "${value}" | xargs)
+# 		fi
+# 		if [[ $(echo "${key}" | xargs) == "volume_name" ]]; then
+# 			NMC_VOLUME_NAME=$(echo "${value}" | xargs)
+# 		fi
+# 		if [[ $(echo "${key}" | xargs) == "aws_profile" ]]; then
+# 			AWS_PROFILE=$(echo "${value}" | xargs)
+# 			echo "$AWS_PROFILE"
+# 			if [[ "$(aws configure list-profiles | grep "${AWS_PROFILE}")" == "" ]]; then
+# 				echo "ERROR ::: AWS profile does not exists. To Create AWS PROFILE, Run cli command - aws configure "
+# 			fi
+# 		fi
+# 	done <"$TFVARS_FILE"
+# fi
+
+if [[ "$(aws configure list-profiles | grep "${AWS_PROFILE}")" == "" ]]; then
+	echo "ERROR ::: AWS profile $AWS_PROFILE does not exists. To Create AWS PROFILE, Run cli command - aws configure "
 	exit 1
-else
-	while IFS='=' read -r key value; do
-		key=$(echo "$key")
-		echo "key ::::: ${key} ~ ${value}"
-		if [[ $(echo "${key}" | xargs) == "region" ]]; then
-			AWS_REGION=$(echo "${value}" | xargs)
-		fi
-		if [[ $(echo "${key}" | xargs) == "volume_name" ]]; then
-			NMC_VOLUME_NAME=$(echo "${value}" | xargs)
-		fi
-		if [[ $(echo "${key}" | xargs) == "aws_profile" ]]; then
-			AWS_PROFILE=$(echo "${value}" | xargs)
-			echo "$AWS_PROFILE"
-			if [[ "$(aws configure list-profiles | grep "${AWS_PROFILE}")" == "" ]]; then
-				echo "ERROR ::: AWS profile does not exists. To Create AWS PROFILE, Run cli command - aws configure "
-			fi
-		fi
-	done <"$TFVARS_FILE"
+else   # AWS Profile nasuni available in local machine
+	AWS_ACCESS_KEY_ID=$(aws configure get aws_access_key_id --profile ${AWS_PROFILE})
+	AWS_SECRET_ACCESS_KEY=$(aws configure get aws_secret_access_key --profile ${AWS_PROFILE})
+	AWS_REGION=$(aws configure get region --profile ${AWS_PROFILE})
 fi
-AWS_ACCESS_KEY_ID=$(aws configure get aws_access_key_id --profile ${AWS_PROFILE})
-AWS_SECRET_ACCESS_KEY=$(aws configure get aws_secret_access_key --profile ${AWS_PROFILE})
 
-echo "AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID
-echo "AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY
-echo "AWS_REGION="$AWS_REGION
-echo "NMC_VOLUME_NAME="$NMC_VOLUME_NAME
-
-
-
-cp -f $2 $NMC_VOLUME_NAME.tfvars
+echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID"
+echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY"
+echo "AWS_REGION=$AWS_REGION"
+echo "NMC_VOLUME_NAME=$NMC_VOLUME_NAME"
+# exit 1
+# cp -f $2 $NMC_VOLUME_NAME.tfvars
 
 
-rm -f file.txt
-if [ $? -eq 0 ]; then
-	echo OK
-else
-	echo FAIL
-	exit 0
-fi
-aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACManager'" "Name=instance-state-name,Values=running" > file.txt 
+# rm -f file.txt
+# if [ $? -eq 0 ]; then
+# 	echo OK
+# else
+# 	echo FAIL
+# 	exit 0
+# fi
+NACMANAGER_AVBL=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACManager'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" | grep -e "NACManager" -e "running") 
 
-data=`grep -e "NACManager" -e "running" file.txt`
-if [ "$data" != "" ]
+echo "NACMANAGER_AVBL $AWS_REGION ::: ${NACMANAGER_AVBL}"
+
+exit 1
+# aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACManager'" "Name=instance-state-name,Values=running" > file.txt 
+
+# data=$(grep -e "NACManager" -e "running" file.txt)
+if [ "$NACMANAGER_AVBL" != "" ]
 then
 	echo "Instance is present"
-	pub_ip_addr=`grep  PublicIP file.txt|cut -c 25-|tr -d '"'`
+	PUB_IP_ADDR=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACManager'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" | grep -e "PublicIP") 
+	# PUB_IP_ADDR=$(grep  PublicIP file.txt|cut -c 25-|tr -d '"')
 
 	# data1=`cut -b file.txt|grep  PublicIP `
-	echo "Public IP Address:-"$pub_ip_addr
-	echo "ssh -i "$1" ubuntu@$pub_ip_addr"
+	echo "Public IP Address:-"$PUB_IP_ADDR
+	echo "ssh -i "$1" ubuntu@$PUB_IP_ADDR"
 	echo "Downloading sch-nac code"
 	GIT_REPO_SCH=https://github.com/psahuNasuni/sch-nac.git
 	Download_git_code $GIT_REPO_SCH
@@ -108,17 +87,17 @@ then
 	tar -czf $GIT_REPO_SCH_NAME.tar.gz $GIT_REPO_SCH_NAME/
 	echo "*****copy $GIT_REPO_SCH_NAME file to remote machine "
 
-	##ssh -i "$1" ubuntu@$pub_ip_addr "mkdir $NMC_VOLUME_NAME "
-	ssh -i "$1" ubuntu@$pub_ip_addr "[ ! -d $NMC_VOLUME_NAME ] && mkdir $NMC_VOLUME_NAME "
-	ssh -i "$1" ubuntu@$pub_ip_addr "echo /home/ubuntu/$NMC_VOLUME_NAME"
-	scp -i "$1" $GIT_REPO_SCH_NAME.tar.gz ubuntu@$pub_ip_addr:/home/ubuntu/$NMC_VOLUME_NAME
+	##ssh -i "$1" ubuntu@$PUB_IP_ADDR "mkdir $NMC_VOLUME_NAME "
+	ssh -i "$1" ubuntu@$PUB_IP_ADDR "[ ! -d $NMC_VOLUME_NAME ] && mkdir $NMC_VOLUME_NAME "
+	ssh -i "$1" ubuntu@$PUB_IP_ADDR "echo /home/ubuntu/$NMC_VOLUME_NAME"
+	scp -i "$1" $GIT_REPO_SCH_NAME.tar.gz ubuntu@$PUB_IP_ADDR:/home/ubuntu/$NMC_VOLUME_NAME
 	echo "*****extract $GIT_REPO_SCH_NAME.tar.gz file to remote machine "
-	ssh -i "$1" ubuntu@$pub_ip_addr "tar -xzf /home/ubuntu/$NMC_VOLUME_NAME/$GIT_REPO_SCH_NAME.tar.gz -C /home/ubuntu/$NMC_VOLUME_NAME/"
+	ssh -i "$1" ubuntu@$PUB_IP_ADDR "tar -xzf /home/ubuntu/$NMC_VOLUME_NAME/$GIT_REPO_SCH_NAME.tar.gz -C /home/ubuntu/$NMC_VOLUME_NAME/"
 	echo "Exporting variables AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY "
 	output_format="json"
-	ssh -i "$1" ubuntu@$pub_ip_addr "export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID ; export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY;export AWS_REGION=$AWS_REGION;export output_format=$output_format"
-	# ssh -i "$1" ubuntu@$pub_ip_addr "echo  $AWS_ACCESS_KEY_ID "
-	cron_vol=`ssh -i "$1" ubuntu@$pub_ip_addr "crontab -l |grep /home/ubuntu/$NMC_VOLUME_NAME/$GIT_REPO_SCH_NAME/$NMC_VOLUME_NAME.tfvars"`
+	ssh -i "$1" ubuntu@$PUB_IP_ADDR "export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID ; export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY;export AWS_REGION=$AWS_REGION;export output_format=$output_format"
+	# ssh -i "$1" ubuntu@$PUB_IP_ADDR "echo  $AWS_ACCESS_KEY_ID "
+	cron_vol=`ssh -i "$1" ubuntu@$PUB_IP_ADDR "crontab -l |grep /home/ubuntu/$NMC_VOLUME_NAME/$GIT_REPO_SCH_NAME/$NMC_VOLUME_NAME.tfvars"`
 	#*/2 * * * * sh /home/ubuntu/file.sh SA-ES-VOL
 	if [ "$cron_vol" != "" ]
 	then
@@ -126,19 +105,19 @@ then
 
 	else
 		echo 'Setting cronjob for '$NMC_VOLUME_NAME.tfvars' as it is not present '
-		#ssh -i "$1" ubuntu@$pub_ip_addr 'cat <(crontab -l) <(echo "* * * * * * sh /home/ubuntu/file.sh") | crontab -'
+		#ssh -i "$1" ubuntu@$PUB_IP_ADDR 'cat <(crontab -l) <(echo "* * * * * * sh /home/ubuntu/file.sh") | crontab -'
 		#echo "Volume Name=$2"
 		
-		#scp -ir  "$1" sch-nac/ ubuntu@$pub_ip_addr:/home/ubuntu/
+		#scp -ir  "$1" sch-nac/ ubuntu@$PUB_IP_ADDR:/home/ubuntu/
 		
-		ssh -i "$1" ubuntu@$pub_ip_addr "(crontab -l ; echo '*/15 * * * * sh /home/ubuntu/$NMC_VOLUME_NAME/sch-nac/provision_nac.sh  /home/ubuntu/$NMC_VOLUME_NAME/sch-nac/$NMC_VOLUME_NAME.tfvars') | sort - | uniq - | crontab -"
+		ssh -i "$1" ubuntu@$PUB_IP_ADDR "(crontab -l ; echo '*/15 * * * * sh /home/ubuntu/$NMC_VOLUME_NAME/sch-nac/provision_nac.sh  /home/ubuntu/$NMC_VOLUME_NAME/sch-nac/$NMC_VOLUME_NAME.tfvars') | sort - | uniq - | crontab -"
 		if [ $? -eq 0 ]; then
 			echo OK
 		else
 			echo FAIL
 			exit 0
 		fi
-	#echo '$(echo "*/2 * * * * ubuntu sh /home/ubuntu/file.sh" ; ssh -i "$1" ubuntu@$pub_ip_addr crontab -l 2>&1)' | ssh -i "$1"  ubuntu@$pub_ip_addr "crontab -"
+	#echo '$(echo "*/2 * * * * ubuntu sh /home/ubuntu/file.sh" ; ssh -i "$1" ubuntu@$PUB_IP_ADDR crontab -l 2>&1)' | ssh -i "$1"  ubuntu@$PUB_IP_ADDR "crontab -"
 	fi 
 else
 	## "NACManager is not present. Creating new EC2 machine."
@@ -192,3 +171,31 @@ else
 	pwd
 	ssh -i "$1" ubuntu@$ip 'sh install_req_pkgs.sh'
 fi
+
+
+
+Download_git_code(){
+	echo "INFO ::: Start - Git Clone "
+    ### Download Provisioning Code from GitHub
+    GIT_REPO="$1"
+    GIT_REPO_NAME=$(echo ${GIT_REPO} | sed 's/.*\/\([^ ]*\/[^.]*\).*/\1/' | cut -d "/" -f 2)
+    echo "$GIT_REPO"
+    echo "GIT_REPO_NAME $GIT_REPO_NAME"
+    pwd
+    ls
+    rm -rf "${GIT_REPO_NAME}"
+    COMMAND="git clone -b main ${GIT_REPO}"
+    $COMMAND
+    RESULT=$?
+    if [ $RESULT -eq 0 ]; then
+        echo "INFO ::: git clone SUCCESS"
+        cd "${GIT_REPO_NAME}"
+    elif [ $RESULT -eq 128 ]; then    
+        cd "${GIT_REPO_NAME}"
+        echo "$GIT_REPO_NAME"
+        COMMAND="git pull origin main"
+        $COMMAND
+	fi
+
+
+}
