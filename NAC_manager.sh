@@ -1,7 +1,10 @@
 #!/bin/bash
 
-NMC_VOLUME_NAME="$1"
 
+
+NMC_VOLUME_NAME="$1"
+NMC_SERVICE="$2"
+FREQUENCY="$3"   # VOL - VOL_MON MON-FRI 2 hrs  
 if [ "$NMC_VOLUME_NAME" == "" ]
 then 
 	echo "Please Provide the mandatory NMC Volume Name"
@@ -50,7 +53,7 @@ if [ "$PUB_IP_ADDR" != "" ];then
 	echo "volume_name="\"$NMC_VOLUME_NAME\" >> $NMC_VOLUME_NAME.tfvars
 
 	### Create Directory for each Volume 
-	ssh -i "$PEM" ubuntu@$PUB_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $NMC_VOLUME_NAME ] && mkdir $NMC_VOLUME_NAME "
+	ssh -i "$PEM" ubuntu@"$PUB_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $NMC_VOLUME_NAME ] && mkdir $NMC_VOLUME_NAME "
 	echo "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR"
 	### Copy TFVARS and provision_nac.sh to NACManager
 	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null provision_nac.sh "$NMC_VOLUME_NAME".tfvars ubuntu@$PUB_IP_ADDR:~/$NMC_VOLUME_NAME
@@ -67,7 +70,7 @@ if [ "$PUB_IP_ADDR" != "" ];then
 
 		echo 'Setting cronjob for '$NMC_VOLUME_NAME.tfvars' as it is not present '
 			
-		ssh -i "$PEM" ubuntu@$PUB_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "(crontab -l ; echo '*/15 * * * * sh /home/ubuntu/$NMC_VOLUME_NAME/provision_nac.sh  /home/ubuntu/$NMC_VOLUME_NAME/$NMC_VOLUME_NAME.tfvars') | sort - | uniq - | crontab -"
+		ssh -i "$PEM" ubuntu@$PUB_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "(crontab -l ; echo '*/15 * * * * sh ~/$NMC_VOLUME_NAME/provision_nac.sh  ~/$NMC_VOLUME_NAME/$NMC_VOLUME_NAME.tfvars') | sort - | uniq - | crontab -"
 		if [ $? -eq 0 ]; then
 			echo "CRON JOB Scheduled for NMC VOLUME_NAME:: $NMC_VOLUME_NAME"
 			exit 0
