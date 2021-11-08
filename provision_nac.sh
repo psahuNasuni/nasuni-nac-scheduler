@@ -28,6 +28,7 @@ AWS_REGION=""
 TFVARS_FILE=$1
 NMC_VOLUME_NAME=$(echo "${TFVARS_FILE}" | cut -d "." -f 1)
 cd "$NMC_VOLUME_NAME"
+pwd
 # if [ -d "$NMC_VOLUME_NAME" ]; then
 #     cd "$NMC_VOLUME_NAME"
 # else
@@ -67,7 +68,7 @@ echo "NAC PROVISIONING ::: STARTED ::: Executing the Terraform scripts . . . . .
 COMMAND="terraform init"
 $COMMAND
 chmod 755 $(pwd)/*
-# exit 1
+exit 1
 echo "NAC PROVISIONING ::: Initialized Terraform Libraries/Dependencies"
 echo "NAC PROVISIONING ::: STARTED ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
 COMMAND="terraform apply -var-file=${TFVARS_FILE} -auto-approve"
