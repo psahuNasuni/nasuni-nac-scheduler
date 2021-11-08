@@ -27,7 +27,7 @@ AWS_PROFILE=""
 AWS_REGION=""
 TFVARS_FILE=$1
 NMC_VOLUME_NAME=$(echo "${TFVARS_FILE}" | cut -d "." -f 1)
-cd "~/$NMC_VOLUME_NAME"
+cd "$NMC_VOLUME_NAME"
 # if [ -d "$NMC_VOLUME_NAME" ]; then
 #     cd "$NMC_VOLUME_NAME"
 # else
