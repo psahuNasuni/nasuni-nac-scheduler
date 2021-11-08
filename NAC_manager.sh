@@ -58,7 +58,9 @@ if [ "$PUB_IP_ADDR" != "" ];then
 	echo "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR"
 	### Copy TFVARS and provision_nac.sh to NACManager
 	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null provision_nac.sh "$NMC_VOLUME_NAME".tfvars ubuntu@$PUB_IP_ADDR:~/$NMC_VOLUME_NAME
-
+	
+	#dos2unix command execute
+	ssh -i "$PEM" ubuntu@"$PUB_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "dos2unix ~/$NMC_VOLUME_NAME/provision_nac.sh"
 	### Check If CRON JOB is running for a specific VOLUME_NAME
 	CRON_VOL=$(ssh -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null ubuntu@"$PUB_IP_ADDR" "crontab -l |grep /home/ubuntu/$NMC_VOLUME_NAME/$NMC_VOLUME_NAME.tfvars")
 	#*/2 * * * * sh /home/ubuntu/file.sh SA-ES-VOL
@@ -71,7 +73,7 @@ if [ "$PUB_IP_ADDR" != "" ];then
 
 		echo 'Setting cronjob for '$NMC_VOLUME_NAME.tfvars' as it is not present '
 			
-		ssh -i "$PEM" ubuntu@$PUB_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "(crontab -l ; echo '*/15 * * * * sh ~/$NMC_VOLUME_NAME/provision_nac.sh  ~/$NMC_VOLUME_NAME/$NMC_VOLUME_NAME.tfvars') | sort - | uniq - | crontab -"
+		ssh -i "$PEM" ubuntu@$PUB_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "(crontab -l ; echo '*/5 * * * * sh ~/$NMC_VOLUME_NAME/provision_nac.sh  ~/$NMC_VOLUME_NAME/$NMC_VOLUME_NAME.tfvars') | sort - | uniq - | crontab -"
 		if [ $? -eq 0 ]; then
 			echo "CRON JOB Scheduled for NMC VOLUME_NAME:: $NMC_VOLUME_NAME"
 			exit 0
