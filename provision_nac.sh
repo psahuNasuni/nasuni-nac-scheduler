@@ -27,12 +27,13 @@ AWS_PROFILE=""
 AWS_REGION=""
 TFVARS_FILE=$1
 NMC_VOLUME_NAME=$(echo "${TFVARS_FILE}" | cut -d "." -f 1)
-if [ -d "$NMC_VOLUME_NAME" ]; then
-    cd "$NMC_VOLUME_NAME"
-else
-    echo "INFO ::: Volume Directory not found !!!"
-    exit 1
-fi
+cd "~/$NMC_VOLUME_NAME"
+# if [ -d "$NMC_VOLUME_NAME" ]; then
+#     cd "$NMC_VOLUME_NAME"
+# else
+#     echo "INFO ::: Volume Directory not found !!!"
+#     exit 1
+# fi
 
 ########################### Git Clone  ###############################################################
 echo "INFO ::: Start - Git Clone !!!"
