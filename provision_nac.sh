@@ -19,6 +19,7 @@
 ####             a- User need to provide/Update valid values for below keys:
 ####
 #############################################################################################
+echo "test text"
 set -e
 
 START=$(date +%s)
