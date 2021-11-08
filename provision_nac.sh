@@ -26,34 +26,14 @@ START=$(date +%s)
 AWS_PROFILE=""
 AWS_REGION=""
 TFVARS_FILE=$1
-if [ ! -f "$TFVARS_FILE" ]; then
-    echo "ERROR ::: Required TFVARS file is missing"
-    exit 1
+NMC_VOLUME_NAME=$(echo "${TFVARS_FILE}" | cut -d "." -f 1)
+if [ -d "$NMC_VOLUME_NAME" ]; then
+    cd "$NMC_VOLUME_NAME"
 else
-    while IFS='=' read -r key value; do
-        key=$(echo "$key")
-        echo "key ::::: ${key} ~ ${value}"
-        if [[ $(echo "${key}" | xargs) == "region" ]]; then
-            AWS_REGION=$(echo "${value}" | xargs)
-        fi
-        if [[ $(echo "${key}" | xargs) == "aws_profile" ]]; then
-            AWS_PROFILE=$(echo "${value}" | xargs)
-            echo "$AWS_PROFILE"
-            if [[ "$(aws configure list-profiles | grep "${AWS_PROFILE}")" == "" ]]; then
-                echo "ERROR ::: AWS profile does not exists. To Create AWS PROFILE, Run cli command - aws configure "
-            fi
-        fi
-    done <"$TFVARS_FILE"
-
-    if [[ $AWS_REGION == "" ]]; then
-        echo "INFO ::: Provide the required key region in TFVARS file"
-        
-    fi
-    if [[ $AWS_PROFILE == "" ]]; then
-        echo "ERROR ::: Required key aws_profile is missing in TFVARS file"
-        exit 1
-    fi
+    echo "INFO ::: Volume Directory not found !!!"
+    exit 1
 fi
+
 ########################### Git Clone  ###############################################################
 echo "INFO ::: Start - Git Clone !!!"
 ### Download Provisioning Code from GitHub
@@ -77,7 +57,7 @@ pwd
 ls -l
 ########################### Completed - Git Clone  ###############################################################
 echo "copy TFVARS file to $(pwd)/${GIT_REPO_NAME}/${TFVARS_FILE}"
-cp "${TFVARS_FILE}" $(pwd)/"${GIT_REPO_NAME}"/"${TFVARS_FILE}"
+cp "~/$NMC_VOLUME_NAME/${TFVARS_FILE}" $(pwd)/"${GIT_REPO_NAME}"/
 cd "${GIT_REPO_NAME}"
 pwd
 ls
