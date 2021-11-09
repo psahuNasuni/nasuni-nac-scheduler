@@ -63,7 +63,8 @@ pwd
 ls -l
 ########################### Completed - Git Clone  ###############################################################
 echo "copy TFVARS file to $(pwd)/${GIT_REPO_NAME}/${TFVARS_FILE}"
-cp "$NMC_VOLUME_NAME/${TFVARS_FILE}" $(pwd)/"${GIT_REPO_NAME}"/
+# cp "$NMC_VOLUME_NAME/${TFVARS_FILE}" $(pwd)/"${GIT_REPO_NAME}"/
+cp "${TFVARS_FILE}" "${GIT_REPO_NAME}"/
 cd "${GIT_REPO_NAME}"
 pwd
 ls
@@ -72,7 +73,7 @@ echo "NAC PROVISIONING ::: STARTED ::: Executing the Terraform scripts . . . . .
 COMMAND="terraform init"
 $COMMAND
 chmod 755 $(pwd)/*
-exit 1
+# exit 1
 echo "NAC PROVISIONING ::: Initialized Terraform Libraries/Dependencies"
 echo "NAC PROVISIONING ::: STARTED ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
 COMMAND="terraform apply -var-file=${TFVARS_FILE} -auto-approve"
