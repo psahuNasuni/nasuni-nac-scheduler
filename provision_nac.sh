@@ -31,6 +31,7 @@ TFVARS_FILE=$1
 NMC_VOLUME_NAME=$(echo "${TFVARS_FILE}" | rev | cut -d'/' -f 1 | rev |cut -d'.' -f 1)
 cd "$NMC_VOLUME_NAME"
 pwd
+echo "current user :-"`whoami`
 # if [ -d "$NMC_VOLUME_NAME" ]; then
 #     cd "$NMC_VOLUME_NAME"
 # else
