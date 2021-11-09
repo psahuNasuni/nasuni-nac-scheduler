@@ -1,7 +1,5 @@
 #!/bin/bash
 
-
-
 NMC_VOLUME_NAME="$1"
 NMC_SERVICE="$2"
 FREQUENCY="$3"   # VOL - VOL_MON MON-FRI 2 hrs  
