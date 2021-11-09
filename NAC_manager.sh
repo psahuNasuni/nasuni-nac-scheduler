@@ -71,7 +71,7 @@ if [ "$PUB_IP_ADDR" != "" ];then
 
 		echo 'Setting cronjob for '$NMC_VOLUME_NAME.tfvars' as it is not present '
 			
-		ssh -i "$PEM" ubuntu@$PUB_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "(crontab -l ; echo '*/5 * * * * sh ~/$NMC_VOLUME_NAME/provision_nac.sh  ~/$NMC_VOLUME_NAME/$NMC_VOLUME_NAME.tfvars >> ~/$NMC_VOLUME_NAME/cronlog.log') | sort - | uniq - | crontab -"
+		ssh -i "$PEM" ubuntu@$PUB_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "(crontab -l ; echo '*/45 * * * * sh ~/$NMC_VOLUME_NAME/provision_nac.sh  ~/$NMC_VOLUME_NAME/$NMC_VOLUME_NAME.tfvars >> ~/$NMC_VOLUME_NAME/cronlog.log') | sort - | uniq - | crontab -"
 		if [ $? -eq 0 ]; then
 			echo "CRON JOB Scheduled for NMC VOLUME_NAME:: $NMC_VOLUME_NAME"
 			exit 0
