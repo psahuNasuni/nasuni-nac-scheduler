@@ -87,7 +87,7 @@ if [ $? -eq 0 ]; then
     fi
 echo "WAITING For Lambda to IndexData - 20Sec   (Only for Testing) "
 sleep 20
-exit 0
+#exit 0
 ### Get the NAC discovery lambda function name
 DISCOVERY_LAMBDA_NAME=$(aws secretsmanager get-secret-value --secret-id nac-es-internal | jq -r '.SecretString' | jq -r '.discovery_lambda_name')
 echo "INFO ::: Discovery lambda name ::: $DISCOVERY_LAMBDA_NAME"
