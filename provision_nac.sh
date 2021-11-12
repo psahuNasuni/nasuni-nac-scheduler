@@ -88,8 +88,16 @@ if [ $? -eq 0 ]; then
 echo "WAITING For Lambda to IndexData - 20Sec   (Only for Testing) "
 sleep 20
 #exit 0
+# while IFS= read -r line; do
+#     echo "INFO ::: Internal secret for NAC Discovery is : $line"
+#     INTERNAL_SECRET="$line"
+# done < nac_uniqui_id.txt
+
+INTERNAL_SECRET=$(head -n 1 nac_uniqui_id.txt)
+echo "INFO ::: Internal secret for NAC Discovery is : $INTERNAL_SECRET"
+
 ### Get the NAC discovery lambda function name
-DISCOVERY_LAMBDA_NAME=$(aws secretsmanager get-secret-value --secret-id nac-es-internal | jq -r '.SecretString' | jq -r '.discovery_lambda_name')
+DISCOVERY_LAMBDA_NAME=$(aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" | jq -r '.SecretString' | jq -r '.discovery_lambda_name')
 echo "INFO ::: Discovery lambda name ::: $DISCOVERY_LAMBDA_NAME"
 # exit 1
 i_cnt=0
