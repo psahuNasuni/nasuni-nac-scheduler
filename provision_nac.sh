@@ -179,7 +179,7 @@ sleep 30
 INTERNAL_SECRET=$(head -n 1 nac_uniqui_id.txt  | tr -d "'")
 echo "INFO ::: Internal secret for NAC Discovery is : $INTERNAL_SECRET"
 ### Get the NAC discovery lambda function name
-DISCOVERY_LAMBDA_NAME=$(aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name')
+DISCOVERY_LAMBDA_NAME=$(aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "$AWS_PROFILE" | jq -r '.SecretString' | jq -r '.discovery_lambda_name')
 echo "INFO ::: Discovery lambda name ::: $DISCOVERY_LAMBDA_NAME"
 
 i_cnt=0
