@@ -252,7 +252,7 @@ if [ "$CLEANUP" != "Y" ]; then
 fi 
 echo "INFO ::: CleanUp Flag: $CLEANUP"
 ###################################################
-if [ "$CLEANUP" == "Y" ]; then
+#if [ "$CLEANUP" == "Y" ]; then
     echo "INFO ::: Lambda execution COMPLETED."
     echo "INFO ::: STARTED ::: CLEANUP NAC STACK and dependent resources . . . . . . . . . . . . . . . . . . . . ."
     # ##### RUN terraform destroy to CLEANUP NAC STACK and dependent resources
@@ -262,8 +262,8 @@ if [ "$CLEANUP" == "Y" ]; then
     # COMMAND="terraform validate"
     $COMMAND
     echo "INFO ::: COMPLETED ::: CLEANUP NAC STACK and dependent resources ! ! ! ! "
-    exit 0
-fi
+#    exit 0
+#fi
 END=$(date +%s)
 secs=$((END - START))
 DIFF=$(printf '%02dh:%02dm:%02ds\n' $((secs/3600)) $((secs%3600/60)) $((secs%60)))
