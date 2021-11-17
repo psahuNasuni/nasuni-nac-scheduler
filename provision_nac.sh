@@ -268,7 +268,7 @@ END=$(date +%s)
 secs=$((END - START))
 DIFF=$(printf '%02dh:%02dm:%02ds\n' $((secs/3600)) $((secs%3600/60)) $((secs%60)))
 echo "INFO ::: Total execution Time ::: $DIFF"
-exit 0
+#exit 0
 
 } || {
     END=$(date +%s)
