@@ -104,6 +104,7 @@ if [ "$IS_ES" == "N" ]; then
     ##### RUN terraform Apply
     echo "INFO ::: ES PROVISIONING ::: STARTED ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
     COMMAND="terraform apply -auto-approve"
+    # COMMAND="terraform validate"
     $COMMAND
     if [ $? -eq 0 ]; then
         echo "INFO ::: ES PROVISIONING ::: Terraform apply ::: COMPLETED . . . . . . . . . . . . . . . . . . ."
@@ -164,6 +165,7 @@ chmod 755 $(pwd)/*
 echo "INFO ::: NAC PROVISIONING ::: Initializing Terraform Libraries/Dependencies ::: COMPLETED"
 echo "INFO ::: NAC PROVISIONING ::: STARTED ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
 COMMAND="terraform apply -var-file=${TFVARS_FILE} -auto-approve"
+# COMMAND="terraform validate"
 $COMMAND
 if [ $? -eq 0 ]; then
         echo "INFO ::: NAC PROVISIONING ::: Terraform apply ::: COMPLETED . . . . . . . . . . . . . . . . . . ."
@@ -172,7 +174,7 @@ if [ $? -eq 0 ]; then
         exit 1
     fi
 ###### WAITING For Lambda to IndexData - 30Sec   (Only for Testing) "
-echo "WAITING For Lambda to IndexData - 30Sec   (Only for Testing) "
+# echo "WAITING For Lambda to IndexData - 30Sec   (Only for Testing) "
 sleep 30
 #exit 0
 
@@ -184,67 +186,70 @@ echo "INFO ::: Discovery lambda name ::: $DISCOVERY_LAMBDA_NAME"
 
 i_cnt=0
 ### Check If Lambda Execution Completed ?
-LAST_UPDATE_STATUS="runnung"
-CLEANUP="N"
+LAST_UPDATE_STATUS="running"
+CLEANUP="Y"
+if [ "$CLEANUP" != "Y" ]; then
 
-if [ "$DISCOVERY_LAMBDA_NAME" == "" ]; then
-   CLEANUP="Y"
-else
-
-    while [ "$LAST_UPDATE_STATUS" != "InProgress" ]; do
-        LAST_UPDATE_STATUS=$(aws lambda get-function-configuration --function-name "$DISCOVERY_LAMBDA_NAME" --region "${AWS_REGION}" | jq -r '.LastUpdateStatus')
-        echo "LAST_UPDATE_STATUS ::: $LAST_UPDATE_STATUS"
-        if [ "$LAST_UPDATE_STATUS" == "Successful" ]; then
-            echo "INFO ::: Lambda execution COMPLETED. Preparing for cleanup of NAC Stack and dependent resources . . . . . . . . . . "
-            CLEANUP="Y"
-            break
-        elif [ "$LAST_UPDATE_STATUS" == "Failed" ]; then
-            echo "INFO ::: Lambda execution FAILED. Preparing for cleanup of NAC Stack and dependent resources . . . . . . . . . .  "
-            CLEANUP="Y"
-            break
-        elif [[ "$LAST_UPDATE_STATUS" == "" || "$LAST_UPDATE_STATUS" == null ]]; then
-            echo "INFO ::: Lambda Function Not found."
-            CLEANUP="Y"
-            break
-        fi
-        ((i_cnt++)) || true
-
-        echo " %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% $((i_cnt))"
-        if [ $((i_cnt)) -eq 5 ]; then
-            if [[ -z "${LAST_UPDATE_STATUS}" ]]; then
-                echo "WARN ::: System TimeOut"
+    if [ -z "$DISCOVERY_LAMBDA_NAME"  ]; then
+        CLEANUP="Y"
+    else
+        
+        while [ "$LAST_UPDATE_STATUS" != "InProgress" ]; do
+            LAST_UPDATE_STATUS=$(aws lambda get-function-configuration --function-name "$DISCOVERY_LAMBDA_NAME" --region "${AWS_REGION}" | jq -r '.LastUpdateStatus')
+            echo "LAST_UPDATE_STATUS ::: $LAST_UPDATE_STATUS"
+            if [ "$LAST_UPDATE_STATUS" == "Successful" ]; then
+                echo "INFO ::: Lambda execution COMPLETED. Preparing for cleanup of NAC Stack and dependent resources . . . . . . . . . . "
+                CLEANUP="Y"
+                break
+            elif [ "$LAST_UPDATE_STATUS" == "Failed" ]; then
+                echo "INFO ::: Lambda execution FAILED. Preparing for cleanup of NAC Stack and dependent resources . . . . . . . . . .  "
+                CLEANUP="Y"
+                break
+            elif [[ "$LAST_UPDATE_STATUS" == "" || "$LAST_UPDATE_STATUS" == null ]]; then
+                echo "INFO ::: Lambda Function Not found."
                 CLEANUP="Y"
                 break
             fi
+            ((i_cnt++)) || true
 
-        fi
-    done
-fi
-echo "CleanUp Flag: $CLEANUP"
+            echo " %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% $((i_cnt))"
+            if [ $((i_cnt)) -eq 5 ]; then
+                if [[ -z "${LAST_UPDATE_STATUS}" ]]; then
+                    echo "WARN ::: System TimeOut"
+                    CLEANUP="Y"
+                    break
+                fi
+
+            fi
+        done
+    fi
+fi 
+echo "INFO ::: CleanUp Flag: $CLEANUP"
 ###################################################
 if [ "$CLEANUP" == "Y" ]; then
-    echo "Lambda execution COMPLETED."
-    echo "STARTED ::: CLEANUP NAC STACK and dependent resources . . . . . . . . . . . . . . . . . . . . ."
-    RUN terraform destroy to CLEANUP NAC STACK and dependent resources
+    echo "INFO ::: Lambda execution COMPLETED."
+    echo "INFO ::: STARTED ::: CLEANUP NAC STACK and dependent resources . . . . . . . . . . . . . . . . . . . . ."
+    # ##### RUN terraform destroy to CLEANUP NAC STACK and dependent resources
 #  exit 1
 
     COMMAND="terraform destroy -var-file=${TFVARS_FILE} -auto-approve"
+    # COMMAND="terraform validate"
     $COMMAND
-    echo "COMPLETED ::: CLEANUP NAC STACK and dependent resources ! ! ! ! "
+    echo "INFO ::: COMPLETED ::: CLEANUP NAC STACK and dependent resources ! ! ! ! "
     exit 0
 fi
 END=$(date +%s)
 secs=$((END - START))
 DIFF=$(printf '%02dh:%02dm:%02ds\n' $((secs/3600)) $((secs%3600/60)) $((secs%60)))
-echo "Total execution Time ::: $DIFF"
+echo "INFO ::: Total execution Time ::: $DIFF"
 exit 0
 
 } || {
     END=$(date +%s)
 	secs=$((END - START))
 	DIFF=$(printf '%02dh:%02dm:%02ds\n' $((secs/3600)) $((secs%3600/60)) $((secs%60)))
-	echo "Total execution Time ::: $DIFF"
+	echo "INFO ::: Total execution Time ::: $DIFF"
 	exit 0
-    echo "Failed NAC Povisioning" 
+    echo "INFO ::: Failed NAC Povisioning" 
 
 }
