@@ -181,9 +181,35 @@ sleep 30
 INTERNAL_SECRET=$(head -n 1 nac_uniqui_id.txt  | tr -d "'")
 echo "INFO ::: Internal secret for NAC Discovery is : $INTERNAL_SECRET"
 ### Get the NAC discovery lambda function name
-DISCOVERY_LAMBDA_NAME=$(aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "$AWS_PROFILE" | jq -r '.SecretString' | jq -r '.discovery_lambda_name')
-echo "INFO ::: Discovery lambda name ::: $DISCOVERY_LAMBDA_NAME"
+DISCOVERY_LAMBDA_NAME=$(aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name')
 
+DISCOVERY_LAMBDA_NAME_1=`aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name'`
+
+#aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name > lambda_function.txt
+
+echo `aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name'` > lambda_function.txt
+
+DISCOVERY_LAMBDA_NAME_2=`cat lambda_function.txt`
+
+aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name' > lambda_function_3.txt
+
+DISCOVERY_LAMBDA_NAME_3=`cat lambda_function_3.txt`
+
+echo "aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name'"
+
+if [ -n "$DISCOVERY_LAMBDA_NAME" ]; then
+    echo "INFO ::: Discovery lambda name :::not empty"
+else
+    echo "INFO ::: Discovery lambda name :::empty"
+fi
+
+echo "INFO ::: Discovery lambda name_3 ::: ${DISCOVERY_LAMBDA_NAME_3}"
+echo "INFO ::: Discovery lambda name_2 ::: ${DISCOVERY_LAMBDA_NAME_2}"
+echo "INFO ::: Discovery lambda name_1 ::: ${DISCOVERY_LAMBDA_NAME_1}"
+echo "INFO ::: Discovery lambda name ::: ${DISCOVERY_LAMBDA_NAME}"
+echo "INFO ::: Region ::: ${AWS_REGION}"
+echo "INFO ::: Profile Name ::: ${AWS_PROFILE}"
+#exit 1
 i_cnt=0
 ### Check If Lambda Execution Completed ?
 LAST_UPDATE_STATUS="running"
