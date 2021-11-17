@@ -104,6 +104,7 @@ if [ "$IS_ES" == "N" ]; then
     ##### RUN terraform Apply
     echo "INFO ::: ES PROVISIONING ::: STARTED ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
     COMMAND="terraform apply -auto-approve"
+    #COMMAND="terraform validate"
     $COMMAND
     if [ $? -eq 0 ]; then
         echo "INFO ::: ES PROVISIONING ::: Terraform apply ::: COMPLETED . . . . . . . . . . . . . . . . . . ."
@@ -164,6 +165,7 @@ chmod 755 $(pwd)/*
 echo "INFO ::: NAC PROVISIONING ::: Initializing Terraform Libraries/Dependencies ::: COMPLETED"
 echo "INFO ::: NAC PROVISIONING ::: STARTED ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
 COMMAND="terraform apply -var-file=${TFVARS_FILE} -auto-approve"
+#COMMAND="terraform validate"
 $COMMAND
 if [ $? -eq 0 ]; then
         echo "INFO ::: NAC PROVISIONING ::: Terraform apply ::: COMPLETED . . . . . . . . . . . . . . . . . . ."
@@ -179,20 +181,53 @@ sleep 30
 INTERNAL_SECRET=$(head -n 1 nac_uniqui_id.txt  | tr -d "'")
 echo "INFO ::: Internal secret for NAC Discovery is : $INTERNAL_SECRET"
 ### Get the NAC discovery lambda function name
-DISCOVERY_LAMBDA_NAME=$(aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "$AWS_PROFILE" | jq -r '.SecretString' | jq -r '.discovery_lambda_name')
-echo "INFO ::: Discovery lambda name ::: $DISCOVERY_LAMBDA_NAME"
+DISCOVERY_LAMBDA_NAME=$(aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name')
 
+DISCOVERY_LAMBDA_NAME_1=`aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name'`
+
+#aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name > lambda_function.txt
+
+echo `aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name'` > lambda_function.txt
+
+DISCOVERY_LAMBDA_NAME_2=`cat lambda_function.txt`
+
+aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name' > lambda_function_3.txt
+
+DISCOVERY_LAMBDA_NAME_3=`cat lambda_function_3.txt`
+
+echo "aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name'"
+
+if [ -n "$DISCOVERY_LAMBDA_NAME" ]; then
+    echo "INFO ::: Discovery lambda name :::not empty"
+else
+    echo "INFO ::: Discovery lambda name :::empty"
+fi
+
+echo "INFO ::: Discovery lambda name_3 ::: ${DISCOVERY_LAMBDA_NAME_3}"
+echo "INFO ::: Discovery lambda name_2 ::: ${DISCOVERY_LAMBDA_NAME_2}"
+echo "INFO ::: Discovery lambda name_1 ::: ${DISCOVERY_LAMBDA_NAME_1}"
+echo "INFO ::: Discovery lambda name ::: ${DISCOVERY_LAMBDA_NAME}"
+echo "INFO ::: Region ::: ${AWS_REGION}"
+echo "INFO ::: Profile Name ::: ${AWS_PROFILE}"
+#exit 1
 i_cnt=0
 ### Check If Lambda Execution Completed ?
-LAST_UPDATE_STATUS="runnung"
-CLEANUP="N"
+LAST_UPDATE_STATUS="running"
+CLEANUP="Y"
 
-if [ "$DISCOVERY_LAMBDA_NAME" == "" ]; then
-   CLEANUP="Y"
-else
+#if [ "$DISCOVERY_LAMBDA_NAME" == "" ]; then
+#   echo "Inside if of DISCOVERY_LAMBDA_NAME is blank"
+#   CLEANUP="Y"
+if [ "$CLEANUP" != "Y" ]; then
+
+  if [ -z "$DISCOVERY_LAMBDA_NAME" ]; then
+    echo "Inside if of DISCOVERY_LAMBDA_NAME is blank"
+    CLEANUP="Y"
+
+  else
 
     while [ "$LAST_UPDATE_STATUS" != "InProgress" ]; do
-        LAST_UPDATE_STATUS=$(aws lambda get-function-configuration --function-name "$DISCOVERY_LAMBDA_NAME" --region "${AWS_REGION}" | jq -r '.LastUpdateStatus')
+        LAST_UPDATE_STATUS=$(aws lambda get-function-configuration --function-name "$DISCOVERY_LAMBDA_NAME" --region "${AWS_REGION}" --profile "${AWS_PROFILE}"| jq -r '.LastUpdateStatus')
         echo "LAST_UPDATE_STATUS ::: $LAST_UPDATE_STATUS"
         if [ "$LAST_UPDATE_STATUS" == "Successful" ]; then
             echo "INFO ::: Lambda execution COMPLETED. Preparing for cleanup of NAC Stack and dependent resources . . . . . . . . . . "
@@ -202,7 +237,7 @@ else
             echo "INFO ::: Lambda execution FAILED. Preparing for cleanup of NAC Stack and dependent resources . . . . . . . . . .  "
             CLEANUP="Y"
             break
-        elif [[ "$LAST_UPDATE_STATUS" == "" || "$LAST_UPDATE_STATUS" == null ]]; then
+        elif [[ "$LAST_UPDATE_STATUS" == "" || "$LAST_UPDATE_STATUS" == null ]];     then
             echo "INFO ::: Lambda Function Not found."
             CLEANUP="Y"
             break
@@ -219,20 +254,21 @@ else
 
         fi
     done
+  fi
 fi
 echo "CleanUp Flag: $CLEANUP"
 ###################################################
-if [ "$CLEANUP" == "Y" ]; then
-    echo "Lambda execution COMPLETED."
-    echo "STARTED ::: CLEANUP NAC STACK and dependent resources . . . . . . . . . . . . . . . . . . . . ."
-    RUN terraform destroy to CLEANUP NAC STACK and dependent resources
+#if [ "$CLEANUP" == "Y" ]; then
+echo "Lambda execution COMPLETED."
+echo "STARTED ::: CLEANUP NAC STACK and dependent resources . . . . . . . . . . . . . . . . . . . . ."
+RUN terraform destroy to CLEANUP NAC STACK and dependent resources
 #  exit 1
 
-    COMMAND="terraform destroy -var-file=${TFVARS_FILE} -auto-approve"
-    $COMMAND
-    echo "COMPLETED ::: CLEANUP NAC STACK and dependent resources ! ! ! ! "
-    exit 0
-fi
+COMMAND="terraform destroy -var-file=${TFVARS_FILE} -auto-approve"
+$COMMAND
+echo "COMPLETED ::: CLEANUP NAC STACK and dependent resources ! ! ! ! "
+exit 0
+#fi
 END=$(date +%s)
 secs=$((END - START))
 DIFF=$(printf '%02dh:%02dm:%02ds\n' $((secs/3600)) $((secs%3600/60)) $((secs%60)))
