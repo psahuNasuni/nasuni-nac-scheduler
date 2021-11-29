@@ -215,8 +215,8 @@ fi
 
 # exit 1
 
-###################### NACMAnager is Available ##############################
-PUB_IP_ADDR=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACManager'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" | grep -e "PublicIP" |cut -d":" -f 2|tr -d '"'|tr -d ' ') 
+######################  NAC Scheduler Instance is Available ##############################
+PUB_IP_ADDR=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACScheduler'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" | grep -e "PublicIP" |cut -d":" -f 2|tr -d '"'|tr -d ' ') 
 echo "PUB_IP_ADDR ::: ${PUB_IP_ADDR}"
 
 
@@ -245,7 +245,7 @@ if [ "$PUB_IP_ADDR" != "" ];then
 	# ssh -i "$PEM" ubuntu@"$PUB_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $NMC_VOLUME_NAME ] && mkdir $NMC_VOLUME_NAME "
 	ssh -i "$PEM" ubuntu@"$PUB_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $CRON_DIR_NAME ] && mkdir $CRON_DIR_NAME "
 	echo "11111111  Test message"
-	### Copy TFVARS and provision_nac.sh to NACManager
+	### Copy TFVARS and provision_nac.sh to NACScheduler
 	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null provision_nac.sh "$TFVARS_FILE_NAME" ubuntu@$PUB_IP_ADDR:~/$CRON_DIR_NAME
 	
 	#dos2unix command execute
@@ -354,45 +354,3 @@ Download_git_code(){
 
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# aws secretsmanager create-secret --name MyTestDatabaseSecret \
-#     --description "My test database secret created with the CLI" \
-#     --secret-string file://mycreds.json
-
-# aws secretsmanager create-secret --name "prod/nac/test/pk1" \
-# --description "NMC secrets to be used for NAC Scheduling" \
-# --secret-string 'Key="nmc_api_username", Value="automation", Key="nmc_api_password", Value="dangerous"'
-# aws secretsmanager delete-secret --secret-id "prod/nac/test/pk" --force-delete-without-recovery --region us-east-1
