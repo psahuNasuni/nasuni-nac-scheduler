@@ -133,7 +133,7 @@ if [[ -n "$FOURTH_ARG" ]]; then
 		echo "INFO ::: Validating the user data file ${FOURTH_ARG} and the provided values" 
 		validate_kvp nmc_api_username "${NMC_API_USERNAME}" 
 		validate_kvp nmc_api_password "${NMC_API_PASSWORD}"
-		validate_kvp nac_product_key "${NAC_PRODUCT_ KEY}"
+		validate_kvp nac_product_key "${NAC_PRODUCT_KEY}"
 		validate_kvp nac_product_key "${NAC_PRODUCT_KEY}"
 		validate_kvp nmc_api_endpoint "${NMC_API_ENDPOINT}"
 		validate_kvp web_access_appliance_address "${WEB_ACCESS_APPLIANCE_ADDRESS}"
@@ -251,7 +251,7 @@ if [ "$PUB_IP_ADDR" != "" ];then
 	#dos2unix command execute
 	ssh -i "$PEM" ubuntu@"$PUB_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "dos2unix ~/$CRON_DIR_NAME/provision_nac.sh"
 	### Check If CRON JOB is running for a specific VOLUME_NAME
-	CRON_VOL=$(ssh -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null ubuntu@"$PUB_IP_ADDR" "crontab -l |grep /home/ubuntu/$CRON_DIR_NAME/$TRVARS_FILE_NAME")
+	CRON_VOL=$(ssh -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null ubuntu@"$PUB_IP_ADDR" "crontab -l |grep /home/ubuntu/$CRON_DIR_NAME/$TFVARS_FILE_NAME")
 	#*/2 * * * * sh /home/ubuntu/file.sh SA-ES-VOL
 	if [ "$CRON_VOL" != "" ]
 	then
@@ -262,7 +262,7 @@ if [ "$PUB_IP_ADDR" != "" ];then
 
 		echo "INFO ::: Setting CRON JOB for $CRON_DIR_NAME as it is not present"
 			
-		ssh -i "$PEM" ubuntu@$PUB_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "(crontab -l ; echo '*/45 * * * * sh ~/$CRON_DIR_NAME/provision_nac.sh  ~/$CRON_DIR_NAME/$TRVARS_FILE_NAME >> ~/$CRON_DIR_NAME/cronlog.log') | sort - | uniq - | crontab -"
+		ssh -i "$PEM" ubuntu@$PUB_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "(crontab -l ; echo '*/45 * * * * sh ~/$CRON_DIR_NAME/provision_nac.sh  ~/$CRON_DIR_NAME/$TFVARS_FILE_NAME >> ~/$CRON_DIR_NAME/cronlog.log') | sort - | uniq - | crontab -"
 		if [ $? -eq 0 ]; then
 			echo "INFO ::: CRON JOB Scheduled for NMC VOLUME and Service :: $CRON_DIR_NAME"
 			exit 0
@@ -276,7 +276,7 @@ exit 1
 ###################### NAC Scheduler EC2 Instance is NOT Available ##############################
 else 
 	## "NAC Scheduler is not present. Creating new EC2 machine."
-	
+	exit 1
 	echo "INFO ::: NAC Scheduler Instance is not present. Creating new EC2 machine."
     ### Download Provisioning Code from GitHub
     GIT_REPO="https://github.com/psahuNasuni/prov_nacmanager.git"
