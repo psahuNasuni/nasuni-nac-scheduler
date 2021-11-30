@@ -134,7 +134,7 @@ if [[ -n "$FOURTH_ARG" ]]; then
 		validate_kvp nmc_api_username "${NMC_API_USERNAME}" 
 		validate_kvp nmc_api_password "${NMC_API_PASSWORD}"
 		validate_kvp nac_product_key "${NAC_PRODUCT_KEY}"
-		validate_kvp nac_product_key "${NAC_PRODUCT_KEY}"
+		# validate_kvp nac_product_key "${NAC_PRODUCT_KEY}"
 		validate_kvp nmc_api_endpoint "${NMC_API_ENDPOINT}"
 		validate_kvp web_access_appliance_address "${WEB_ACCESS_APPLIANCE_ADDRESS}"
 		# validate_kvp	volume_key "${VOLUME_KEY}"
@@ -196,8 +196,8 @@ EOF
 			validate_secret_values "$USER_SECRET" web_access_appliance_address "$AWS_REGION" "$AWS_PROFILE" 
 			validate_secret_values "$USER_SECRET" destination_bucket "$AWS_REGION" "$AWS_PROFILE" 
 			validate_secret_values "$USER_SECRET" volume_key "$AWS_REGION" "$AWS_PROFILE" 
-			validate_secret_values "$USER_SECRET" volume_keyZ "$AWS_REGION" "$AWS_PROFILE" 
-			validate_secret_values "$USER_SECRET" volume_keyZ "$AWS_REGION" "$AWS_PROFILE" 
+			# validate_secret_values "$USER_SECRET" volume_keyZ "$AWS_REGION" "$AWS_PROFILE" 
+			# validate_secret_values "$USER_SECRET" volume_keyZ "$AWS_REGION" "$AWS_PROFILE" 
 			# echo "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH"
 			# exit 1
 			# nmc_api_username	
