@@ -5,8 +5,7 @@
 *.zip
 *lock*
 .terraform
-prov.sh
 nac-es
-pre-run-rhel.sh
-pre-run-ubuntu.sh
-ohio-nac.tfvars
+*.tfvars
+*.json
+*copy.sh
