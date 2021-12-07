@@ -2,7 +2,7 @@
 
 ##############################################
 ## Pre-Requisite(S):						##
-## 		- Git, aws CLI, JQ 					##
+## 		- Git, AWS CLI, JQ 					##
 ##		- AWS Profile Setup as nasuni		##
 ##############################################
 DATE_WITH_TIME=`date "+%Y%m%d-%H%M%S"`	
@@ -160,7 +160,7 @@ NAC_INPUT_KVP="$5"			### 5th argument  ::: User defined KVP file for passing arg
 echo "INFO ::: Validating Arguments Passed to NAC_Scheduler.sh"
 if [ "${#NMC_VOLUME_NAME}" -lt 3 ]
 then 
-	echo "INFO ::: Something went wrong. Please re-check 1st argument and provide a valid NMC Volume Name."
+	echo "ERROR ::: Something went wrong. Please re-check 1st argument and provide a valid NMC Volume Name."
 	exit 1
 fi
 if [[ "${#ANALYTICS_SERVICE}" -lt 2 ]]; then  
@@ -168,9 +168,16 @@ if [[ "${#ANALYTICS_SERVICE}" -lt 2 ]]; then
 	ANALYTICS_SERVICE="ES"    # ElasticSearch Service as default
 fi
 if [[ "${#FREQUENCY}" -lt 2  ]]; then  
-	echo "INFO ::: Mandatory 3rd argument is invalid"
+	echo "ERROR ::: Mandatory 3rd argument is invalid"
 	exit 1
+else 
+	REX="^[0-9]+([.][0-9]+)?$"
+	if ! [[ $FREQUENCY =~ $REX ]] ; then
+		echo "ERROR ::: the 3rd Argument is Not a number" >&2; exit 1
+	fi
 fi
+# echo "@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#"
+# exit 1 
 ### Validate aws_profile
 validate_aws_profile
 ########## Check If fourth argument is provided 
@@ -285,7 +292,6 @@ if [ "$PUB_IP_ADDR" != "" ];then
 	fi
 	### Create Directory for each Volume 
 	ssh -i "$PEM" ubuntu@"$PUB_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $CRON_DIR_NAME ] && mkdir $CRON_DIR_NAME "
-	# echo "11111111  Test message"
 	### Copy TFVARS and provision_nac.sh to NACScheduler
 	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null provision_nac.sh "$TFVARS_FILE_NAME" ubuntu@$PUB_IP_ADDR:~/$CRON_DIR_NAME
 	RES="$?"

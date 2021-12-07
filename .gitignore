@@ -1,4 +1,3 @@
-.gitignore
 *.tfvars
 *tfstate*
 *.txt
@@ -9,3 +8,4 @@ nac-es
 *.tfvars
 *.json
 *copy.sh
+.gitignore
