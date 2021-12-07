@@ -32,11 +32,12 @@ AWS_REGION="$3"
 		COMMAND="aws secretsmanager get-secret-value --secret-id ${USER_SECRET} --profile ${AWS_PROFILE} --region ${AWS_REGION}"
 		$COMMAND
 		RES=$?
+		#  echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  $RES"
 		if [[ $RES -eq 0 ]]; then
-			echo "INFO ::: Secret ${USER_SECRET} Exists. $?"
+			# echo "INFO ::: Secret ${USER_SECRET} Exists. $RES"
 			echo "Y"
 		else
-			echo "ERROR ::: $? :: Secret ${USER_SECRET} Does'nt Exist in ${AWS_REGION} region. OR, Invalid Secret name passed as 4th parameter"
+			# echo "ERROR ::: $RES :: Secret ${USER_SECRET} Does'nt Exist in ${AWS_REGION} region. OR, Invalid Secret name passed as 4th parameter"
 			echo "N"
 			# exit 0
 		fi
@@ -142,6 +143,65 @@ validate_aws_profile() {
 	echo "INFO ::: AWS profile Validation SUCCESS !!!"
 
 }
+########################## Create CRON ############################################################
+Schedule_CRON_JOB(){
+	NAC_SCHEDULER_IP_ADDR=$1 
+    # Temporary Code Till alternative for PEM file is found
+	if [[ ${AWS_REGION} == "us-east-2" ]]; then
+		PEM="nac-manager.pem"
+	elif [[ "${AWS_REGION}" == "us-east-1" ]]; then
+		PEM="nac-manager-nv.pem"
+	fi
+
+	echo "INFO ::: Public IP Address:- $NAC_SCHEDULER_IP_ADDR"
+	echo "ssh -i "$PEM" ubuntu@$NAC_SCHEDULER_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null"
+	### Create TFVARS File
+	CRON_DIR_NAME="${NMC_VOLUME_NAME}_${ANALYTICS_SERVICE}"
+	TFVARS_FILE_NAME="${CRON_DIR_NAME}.tfvars"
+	rm -rf "$TFVARS_FILE_NAME"
+	echo "aws_profile="\"$AWS_PROFILE\" >> $TFVARS_FILE_NAME
+	echo "region="\"$AWS_REGION\" >> $TFVARS_FILE_NAME
+	echo "volume_name="\"$NMC_VOLUME_NAME\" >> $TFVARS_FILE_NAME
+	echo "user_secret="\"$USER_SECRET\" >> $TFVARS_FILE_NAME
+	if [ $ARG_COUNT -eq 5 ]; then
+    	echo "INFO ::: $ARG_COUNT th Argument is supplied as ::: $NAC_INPUT_KVP" 
+		append_nac_keys_values_to_tfvars $NAC_INPUT_KVP $TFVARS_FILE_NAME
+	fi
+	### Create Directory for each Volume 
+	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $CRON_DIR_NAME ] && mkdir $CRON_DIR_NAME "
+	### Copy TFVARS and provision_nac.sh to NACScheduler
+	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null provision_nac.sh "$TFVARS_FILE_NAME" ubuntu@$NAC_SCHEDULER_IP_ADDR:~/$CRON_DIR_NAME
+	RES="$?"
+	if [ $RES -ne 0 ]; then
+		echo "ERROR ::: Failed to Copy $TFVARS_FILE_NAME to NAC_Scheduer Instance."
+		exit 1
+	elif [ $RES -eq 0 ]; then
+		echo "INFO ::: $TFVARS_FILE_NAME Uploaded Successfully to NAC_Scheduer Instance."
+	fi
+	rm -rf $TFVARS_FILE_NAME
+	#dos2unix command execute
+	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "dos2unix ~/$CRON_DIR_NAME/provision_nac.sh"
+	### Check If CRON JOB is running for a specific VOLUME_NAME
+	CRON_VOL=$(ssh -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null ubuntu@"$NAC_SCHEDULER_IP_ADDR" "crontab -l |grep /home/ubuntu/$CRON_DIR_NAME/$TFVARS_FILE_NAME")
+	if [ "$CRON_VOL" != "" ]
+	then
+		### DO Nothing. CRON JOB takes care of NAC Provisioning
+		echo "INFO ::: crontab does not require volume entry.As it is already present.:::::"
+	else
+		### Set up a new CRON JOB for NAC Provisioning
+
+		echo "INFO ::: Setting CRON JOB for $CRON_DIR_NAME as it is not present"
+		ssh -i "$PEM" ubuntu@$NAC_SCHEDULER_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "(crontab -l ; echo '*/$FREQUENCY * * * * sh ~/$CRON_DIR_NAME/provision_nac.sh  ~/$CRON_DIR_NAME/$TFVARS_FILE_NAME >> ~/$CRON_DIR_NAME/CRON_log-$CRON_DIR_NAME-$DATE_WITH_TIME.log') | sort - | uniq - | crontab -"
+		if [ $? -eq 0 ]; then
+			echo "INFO ::: CRON JOB Scheduled for NMC VOLUME and Service :: $CRON_DIR_NAME"
+			exit 0
+		else
+			echo "ERROR ::: FAILED to Schedule CRON JOB for NMC VOLUME and Service :: $CRON_DIR_NAME"
+			exit 1
+		fi
+	fi
+
+}
 #######################################################################################
 
 if [ $# -eq 0 ]; then
@@ -189,6 +249,7 @@ if [[ -n "$FOURTH_ARG" ]]; then
 
         # Parse the user data - KVP
         parse_textfile_for_user_secret_keys_values "$FOURTH_ARG"
+
 		#### Validate the user data file and the provided values 
 		echo "INFO ::: Validating the user data file ${FOURTH_ARG} and the provided values" 
 		validate_kvp nmc_api_username "${NMC_API_USERNAME}" 
@@ -199,14 +260,15 @@ if [[ -n "$FOURTH_ARG" ]]; then
 		validate_kvp destination_bucket "${DESTINATION_BUCKET}"
 		
 		create_JSON_from_Input_user_KVPfile $FOURTH_ARG > user_creds_"${NMC_VOLUME_NAME}"_"${ANALYTICS_SERVICE}".json
-		
+		#  echo "@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#"
+		# exit 1 
 		# Formation of User Secret Name 
 		USER_SECRET="prod/nac/admin/$NMC_VOLUME_NAME/$ANALYTICS_SERVICE"
 		# Verify the Secret Exists
 		USER_SECRET_EXISTS=$(check_if_secret_exists $USER_SECRET $AWS_PROFILE $AWS_REGION)
-		echo "INFO ::: START Update Secret"
-		echo "INFO ::: USER_SECRET_EXISTS ::: $USER_SECRET_EXISTS "
+		# echo "INFO ::: USER_SECRET_EXISTS ::: $USER_SECRET_EXISTS "
 		if [ "$USER_SECRET_EXISTS" != "N" ]; then
+		# echo "&&&&&&&&&&&&&&&&&&&&&&&&&& ::: $USER_SECRET_EXISTS "
 			echo "INFO ::: Fourth argument is a File && the User Secret exists ==> User wants to Update the Secret Values"
 			# Update Secret
 			echo "INFO ::: Update Secret $USER_SECRET "
@@ -223,8 +285,9 @@ if [[ -n "$FOURTH_ARG" ]]; then
 			fi
 		else  
 		## Fourth argument is a File && the User Secret Doesn't exist ==> User wants to Create a new Secret 
+		# echo "################################# ::: $USER_SECRET_EXISTS "
 			# Create Secret
-			echo "INFO ::: Create Secret $USER_SECRET ######################"
+			echo "INFO ::: Create Secret $USER_SECRET"
 			aws secretsmanager create-secret --name "${USER_SECRET}" \
 			--description "Preserving User specific data/secrets to be used for NAC Scheduling" \
 			--secret-string file://user_creds_"${NMC_VOLUME_NAME}"_"${ANALYTICS_SERVICE}".json \
@@ -263,7 +326,8 @@ fi
 
 echo "INFO ::: Get IP Address of NAC Scheduler Instance"
 ######################  NAC Scheduler Instance is Available ##############################
-PUB_IP_ADDR=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACScheduler'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" | grep -e "PublicIP" |cut -d":" -f 2|tr -d '"'|tr -d ' ') 
+PUB_IP_ADDR=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACScheduler-XXXXXXXXXXX'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" | grep -e "PublicIP" |cut -d":" -f 2|tr -d '"'|tr -d ' ') 
+# PUB_IP_ADDR=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACScheduler'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" | grep -e "PublicIP" |cut -d":" -f 2|tr -d '"'|tr -d ' ') 
 echo "INFO ::: PUB_IP_ADDR ::: ${PUB_IP_ADDR}"
 
 if [ "$PUB_IP_ADDR" != "" ];then 
@@ -326,8 +390,8 @@ if [ "$PUB_IP_ADDR" != "" ];then
 ###################### NAC Scheduler EC2 Instance is NOT Available ##############################
 else 
 	## "NAC Scheduler is not present. Creating new EC2 machine."
-	exit 1
 	echo "INFO ::: NAC Scheduler Instance is not present. Creating new EC2 machine."
+	# exit 1
     ### Download Provisioning Code from GitHub
     GIT_REPO="https://github.com/psahuNasuni/prov_nacmanager.git"
     GIT_REPO_NAME=$(echo ${GIT_REPO} | sed 's/.*\/\([^ ]*\/[^.]*\).*/\1/' | cut -d "/" -f 2)
@@ -355,13 +419,13 @@ else
     $COMMAND
 	echo "INFO ::: NAC Scheduler EC2 PROVISIONING ::: Initialized Terraform Libraries/Dependencies"
     echo "INFO ::: NAC Scheduler EC2 PROVISIONING ::: STARTED ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
-	##update dev.tfvars file to pass region as AWS_REGION sed --task 
+	## Create .tfvars file to pass region as AWS_REGION sed --task 
 	pwd
-	sed 's/us-east-2/'${AWS_REGION}'/g' dev.tfvars >temp.txt
-	rm -f dev.tfvars
-	mv temp.txt dev.tfvars
-	
-    COMMAND="terraform apply -var-file=dev.tfvars -auto-approve"
+	TFVARS_NAC_SCHEDULER="NACScheduler.tfvars"
+	rm -rf "$TFVARS_NAC_SCHEDULER"
+	echo "aws_profile="\"$AWS_PROFILE\" >> $TFVARS_NAC_SCHEDULER
+	echo "region="\"$AWS_REGION\" >> $TFVARS_NAC_SCHEDULER
+    COMMAND="terraform apply -var-file=$TFVARS_NAC_SCHEDULER -auto-approve"
     $COMMAND
     if [ $? -eq 0 ]; then
         echo "INFO ::: NAC Scheduler EC2 PROVISIONING ::: Terraform apply ::: COMPLETED . . . . . . . . . . . . . . . . . . ."
@@ -369,12 +433,15 @@ else
 		echo "INFO ::: NAC Scheduler EC2 PROVISIONING ::: Terraform apply ::: FAILED."
 		exit 1
 	fi
+	# rm -rf "$TFVARS_NAC_SCHEDULER"
 	ip=`cat NACScheduler_IP.txt`
+	NAC_SCHEDULER_IP_ADDR=$ip 
 	echo 'New pubilc IP just created:-'$ip
 	pwd
 	cd ../
 	pwd
-	ssh -i "$1" ubuntu@$ip 'sh install_req_pkgs.sh'
+	Schedule_CRON_JOB $NAC_SCHEDULER_IP_ADDR
+	# ssh -i "$1" ubuntu@$ip 'sh install_req_pkgs.sh'
 fi
 
 END=$(date +%s)
