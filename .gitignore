@@ -9,3 +9,4 @@ nac-es
 *.json
 *copy.sh
 .gitignore
+prov_nacmanager
