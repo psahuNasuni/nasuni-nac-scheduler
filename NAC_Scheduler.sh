@@ -326,67 +326,14 @@ fi
 
 echo "INFO ::: Get IP Address of NAC Scheduler Instance"
 ######################  NAC Scheduler Instance is Available ##############################
-# PUB_IP_ADDR=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACScheduler-XXXXXXXXXXX'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" | grep -e "PublicIP" |cut -d":" -f 2|tr -d '"'|tr -d ' ') 
-PUB_IP_ADDR=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACScheduler'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" | grep -e "PublicIP" |cut -d":" -f 2|tr -d '"'|tr -d ' ') 
-echo "INFO ::: PUB_IP_ADDR ::: ${PUB_IP_ADDR}"
+# PUB_IP_ADDR_NAC_SCHEDULER=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACScheduler-XXXXXXXXXXX'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" | grep -e "PublicIP" |cut -d":" -f 2|tr -d '"'|tr -d ' ') 
+PUB_IP_ADDR_NAC_SCHEDULER=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACScheduler'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" | grep -e "PublicIP" |cut -d":" -f 2|tr -d '"'|tr -d ' ') 
+echo "INFO ::: PUB_IP_ADDR_NAC_SCHEDULER ::: ${PUB_IP_ADDR_NAC_SCHEDULER}"
 
-if [ "$PUB_IP_ADDR" != "" ];then 
-	echo "INFO ::: NAC Scheduler Instance is Available. IP Address: $PUB_IP_ADDR"
-
-	# Temporary Code Till alternative for PEM file is found
-	if [[ ${AWS_REGION} == "us-east-2" ]]; then
-		PEM="nac-manager.pem"
-	elif [[ "${AWS_REGION}" == "us-east-1" ]]; then
-		PEM="nac-manager-nv.pem"
-	fi
-
-	echo "INFO ::: Public IP Address:- $PUB_IP_ADDR"
-	echo "ssh -i "$PEM" ubuntu@$PUB_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null"
-	### Create TFVARS File
-	CRON_DIR_NAME="${NMC_VOLUME_NAME}_${ANALYTICS_SERVICE}"
-	TFVARS_FILE_NAME="${CRON_DIR_NAME}.tfvars"
-	rm -rf "$TFVARS_FILE_NAME"
-	echo "aws_profile="\"$AWS_PROFILE\" >> $TFVARS_FILE_NAME
-	echo "region="\"$AWS_REGION\" >> $TFVARS_FILE_NAME
-	echo "volume_name="\"$NMC_VOLUME_NAME\" >> $TFVARS_FILE_NAME
-	echo "user_secret="\"$USER_SECRET\" >> $TFVARS_FILE_NAME
-	if [ $ARG_COUNT -eq 5 ]; then
-    	echo "INFO ::: $ARG_COUNT th Argument is supplied as ::: $NAC_INPUT_KVP" 
-		append_nac_keys_values_to_tfvars $NAC_INPUT_KVP $TFVARS_FILE_NAME
-	fi
-	### Create Directory for each Volume 
-	ssh -i "$PEM" ubuntu@"$PUB_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $CRON_DIR_NAME ] && mkdir $CRON_DIR_NAME "
-	### Copy TFVARS and provision_nac.sh to NACScheduler
-	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null provision_nac.sh "$TFVARS_FILE_NAME" ubuntu@$PUB_IP_ADDR:~/$CRON_DIR_NAME
-	RES="$?"
-	if [ $RES -ne 0 ]; then
-		echo "ERROR ::: Failed to Copy $TFVARS_FILE_NAME to NAC_Scheduer Instance."
-		exit 1
-	elif [ $RES -eq 0 ]; then
-		echo "INFO ::: $TFVARS_FILE_NAME Uploaded Successfully to NAC_Scheduer Instance."
-	fi
-	rm -rf $TFVARS_FILE_NAME
-	#dos2unix command execute
-	ssh -i "$PEM" ubuntu@"$PUB_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "dos2unix ~/$CRON_DIR_NAME/provision_nac.sh"
-	### Check If CRON JOB is running for a specific VOLUME_NAME
-	CRON_VOL=$(ssh -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null ubuntu@"$PUB_IP_ADDR" "crontab -l |grep /home/ubuntu/$CRON_DIR_NAME/$TFVARS_FILE_NAME")
-	if [ "$CRON_VOL" != "" ]
-	then
-		### DO Nothing. CRON JOB takes care of NAC Provisioning
-		echo "INFO ::: crontab does not require volume entry.As it is already present.:::::"
-	else
-		### Set up a new CRON JOB for NAC Provisioning
-
-		echo "INFO ::: Setting CRON JOB for $CRON_DIR_NAME as it is not present"
-		ssh -i "$PEM" ubuntu@$PUB_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "(crontab -l ; echo '*/$FREQUENCY * * * * sh ~/$CRON_DIR_NAME/provision_nac.sh  ~/$CRON_DIR_NAME/$TFVARS_FILE_NAME >> ~/$CRON_DIR_NAME/CRON_log-$CRON_DIR_NAME-$DATE_WITH_TIME.log') | sort - | uniq - | crontab -"
-		if [ $? -eq 0 ]; then
-			echo "INFO ::: CRON JOB Scheduled for NMC VOLUME and Service :: $CRON_DIR_NAME"
-			exit 0
-		else
-			echo "ERROR ::: FAILED to Schedule CRON JOB for NMC VOLUME and Service :: $CRON_DIR_NAME"
-			exit 1
-		fi
-	fi
+if [ "$PUB_IP_ADDR_NAC_SCHEDULER" != "" ];then 
+	echo "INFO ::: NAC Scheduler Instance is Available. IP Address: $PUB_IP_ADDR_NAC_SCHEDULER"
+	Schedule_CRON_JOB $PUB_IP_ADDR_NAC_SCHEDULER
+	
 ###################### NAC Scheduler EC2 Instance is NOT Available ##############################
 else 
 	## "NAC Scheduler is not present. Creating new EC2 machine."
@@ -441,7 +388,6 @@ else
 	cd ../
 	pwd
 	Schedule_CRON_JOB $NAC_SCHEDULER_IP_ADDR
-	# ssh -i "$1" ubuntu@$ip 'sh install_req_pkgs.sh'
 fi
 
 END=$(date +%s)
