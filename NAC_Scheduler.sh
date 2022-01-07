@@ -20,16 +20,6 @@ parse_textfile_for_nac_scheduler_name() {
   done < "$file"
 }
 
-# Setup_Search_Lambda() {
-
-# }
-# Setup_Search_UI() {
-
-
-# }
-
-
-
 append_nac_keys_values_to_tfvars() {
   inputFile="$1"   ### Read InputFile
   outFile="$2"
@@ -176,6 +166,8 @@ Schedule_CRON_JOB(){
 		PEM="nac-manager-nv.pem"
 	fi
 
+	sudo chmod 400 $PEM
+
 	echo "INFO ::: Public IP Address:- $NAC_SCHEDULER_IP_ADDR"
 	echo "ssh -i "$PEM" ubuntu@$NAC_SCHEDULER_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null"
 	### Create TFVARS File
@@ -259,6 +251,7 @@ else
 		echo "ERROR ::: the 3rd Argument is Not a number" >&2; exit 1
 	fi
 fi
+
 # echo "@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#"
 # exit 1 
 ### Validate aws_profile
