@@ -413,7 +413,7 @@ else
 	if [[ "$NAC_SCHEDULER_NAME" != "" ]]; then
 		echo "nac_scheduler_name="\"$NAC_SCHEDULER_NAME\" >> $TFVARS_NAC_SCHEDULER
     fi
-	exit 0
+
 	# dos2unix $TFVARS_NAC_SCHEDULER
 	# exit 0
 	COMMAND="terraform apply -var-file=$TFVARS_NAC_SCHEDULER -auto-approve"
