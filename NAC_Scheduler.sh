@@ -8,9 +8,32 @@
 DATE_WITH_TIME=`date "+%Y%m%d-%H%M%S"`	
 START=$(date +%s)
 
+
+
+parse_textfile_for_nac_scheduler_name() {
+  file="$1"
+  dos2unix $file
+  while IFS="=" read -r key value; do
+    case "$key" in
+      "nac_scheduler_name") NAC_SCHEDULER_NAME="$value" ;;
+    esac
+  done < "$file"
+}
+
+# Setup_Search_Lambda() {
+
+# }
+# Setup_Search_UI() {
+
+
+# }
+
+
+
 append_nac_keys_values_to_tfvars() {
   inputFile="$1"   ### Read InputFile
   outFile="$2"
+  dos2unix $inputFile
   echo "inputFile ::: $inputFile"
   echo "outFile ::: $outFile"
   # echo " " >> $outFile
@@ -202,7 +225,7 @@ Schedule_CRON_JOB(){
 	fi
 
 }
-#######################################################################################
+##################################### START - SCRIPT Execution HERE ##################################################
 
 if [ $# -eq 0 ]; then
     echo "ERROR ::: No argument(s) supplied. This Script Takes 4 Mandatory Arguments 1) NMC Volume_Name, 2) Service, 3) Frequency and 4) User Secret(either Existing Secret Name Or Secret KVPs in a text file)"
@@ -258,7 +281,7 @@ if [[ -n "$FOURTH_ARG" ]]; then
 		validate_kvp nmc_api_endpoint "${NMC_API_ENDPOINT}"
 		validate_kvp web_access_appliance_address "${WEB_ACCESS_APPLIANCE_ADDRESS}"
 		validate_kvp destination_bucket "${DESTINATION_BUCKET}"
-		
+		# nac_scheduler_name   - Get the value -- If its not null / "" then NAC_SCHEDULER_NAME = ${nac_scheduler_name}
 		create_JSON_from_Input_user_KVPfile $FOURTH_ARG > user_creds_"${NMC_VOLUME_NAME}"_"${ANALYTICS_SERVICE}".json
 		#  echo "@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#"
 		# exit 1 
@@ -320,14 +343,29 @@ if [[ -n "$FOURTH_ARG" ]]; then
 			validate_secret_values "$USER_SECRET" volume_key "$AWS_REGION" "$AWS_PROFILE" 
 		fi
 	fi
+
 else 
 	echo "INFO ::: Fourth argument is NOT provided, So, It will consider prod/nac/admin as the default user secret."
 fi
+####   
+	
+	NMC_ENDPOINT_ACCESSIBILITY  "$FOURTH_ARG"
+	
+####
 
 echo "INFO ::: Get IP Address of NAC Scheduler Instance"
 ######################  NAC Scheduler Instance is Available ##############################
-# PUB_IP_ADDR_NAC_SCHEDULER=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACScheduler-XXXXXXXXXXX'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" | grep -e "PublicIP" |cut -d":" -f 2|tr -d '"'|tr -d ' ') 
-PUB_IP_ADDR_NAC_SCHEDULER=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACScheduler'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" | grep -e "PublicIP" |cut -d":" -f 2|tr -d '"'|tr -d ' ') 
+
+NAC_SCHEDULER_NAME=""
+parse_textfile_for_nac_scheduler_name "$FOURTH_ARG"
+if [ $NAC_SCHEDULER_NAME != "" ]; then
+	### User has provided the NACScheduler Name as Key-Value from 4th Argument
+	PUB_IP_ADDR_NAC_SCHEDULER=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='$NAC_SCHEDULER_NAME'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" | grep -e "PublicIP" |cut -d":" -f 2|tr -d '"'|tr -d ' ') 
+else 
+	PUB_IP_ADDR_NAC_SCHEDULER=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACScheduler'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" | grep -e "PublicIP" |cut -d":" -f 2|tr -d '"'|tr -d ' ') 
+fi
+
+
 echo "INFO ::: PUB_IP_ADDR_NAC_SCHEDULER ::: ${PUB_IP_ADDR_NAC_SCHEDULER}"
 
 if [ "$PUB_IP_ADDR_NAC_SCHEDULER" != "" ];then 
@@ -372,7 +410,13 @@ else
 	rm -rf "$TFVARS_NAC_SCHEDULER"
 	echo "aws_profile="\"$AWS_PROFILE\" >> $TFVARS_NAC_SCHEDULER
 	echo "region="\"$AWS_REGION\" >> $TFVARS_NAC_SCHEDULER
-    COMMAND="terraform apply -var-file=$TFVARS_NAC_SCHEDULER -auto-approve"
+	if [[ "$NAC_SCHEDULER_NAME" != "" ]]; then
+		echo "nac_scheduler_name="\"$NAC_SCHEDULER_NAME\" >> $TFVARS_NAC_SCHEDULER
+    fi
+	exit 0
+	# dos2unix $TFVARS_NAC_SCHEDULER
+	# exit 0
+	COMMAND="terraform apply -var-file=$TFVARS_NAC_SCHEDULER -auto-approve"
     $COMMAND
     if [ $? -eq 0 ]; then
         echo "INFO ::: NAC Scheduler EC2 PROVISIONING ::: Terraform apply ::: COMPLETED . . . . . . . . . . . . . . . . . . ."
@@ -388,6 +432,9 @@ else
 	cd ../
 	pwd
 	Schedule_CRON_JOB $NAC_SCHEDULER_IP_ADDR
+	# Setup_Search_Lambda
+	# Setup_Search_UI
+	
 fi
 
 END=$(date +%s)
@@ -395,6 +442,3 @@ secs=$((END - START))
 DIFF=$(printf '%02dh:%02dm:%02ds\n' $((secs/3600)) $((secs%3600/60)) $((secs%60)))
 echo "INFO ::: Total execution Time ::: $DIFF"
 #exit 0
-
-
-
