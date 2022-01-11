@@ -21,7 +21,7 @@ NMC_ENDPOINT_ACCESSIBILITY() {
 	elif [[ "${AWS_REGION}" == "us-east-1" ]]; then
 		PEM="nac-manager-nv.pem"
 	fi
-	sudo chmod 400 $PEM
+	chmod 400 $PEM
 	# nac_scheduler_name = from FourthArgument of NAC_Scheduler.sh, user_sec.txt
     parse_textfile_for_user_secret_keys_values user_sec.txt
 	# parse_textfile_for_nac_scheduler_name user_sec.txt
@@ -247,7 +247,7 @@ Schedule_CRON_JOB(){
 		PEM="nac-manager-nv.pem"
 	fi
 
-	sudo chmod 400 $PEM
+	chmod 400 $PEM
 
 	echo "INFO ::: Public IP Address:- $NAC_SCHEDULER_IP_ADDR"
 	echo "ssh -i "$PEM" ubuntu@$NAC_SCHEDULER_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null"
@@ -451,7 +451,9 @@ if [ "$PUB_IP_ADDR_NAC_SCHEDULER" != "" ];then
 	#CTPROJECT-169
 	
 	NMC_ENDPOINT_ACCESSIBILITY $NAC_SCHEDULER_NAME $PUB_IP_ADDR_NAC_SCHEDULER 
+
 	echo "exiting NMC_ENDPOINT_ACCESSIBILITY add_ip_to_sec_grp completed"
+	# exit 1
 	Schedule_CRON_JOB $PUB_IP_ADDR_NAC_SCHEDULER
 	
 ###################### NAC Scheduler EC2 Instance is NOT Available ##############################
