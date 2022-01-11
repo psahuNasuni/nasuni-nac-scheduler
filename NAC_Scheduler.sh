@@ -36,7 +36,7 @@ NMC_ENDPOINT_ACCESSIBILITY() {
     echo "PUB_IP_ADDR_NAC_SCHEDULER :"$PUB_IP_ADDR_NAC_SCHEDULER
     py_file_name=`ls check_nmc_visiblity.py`
     echo "Python File Name-"$py_file_name
-    cat $py_file_name | ssh -i "$PEM" ubuntu@$PUB_IP_ADDR_NAC_SCHEDULER python3 - $NMC_API_USERNAME $NMC_API_PASSWORD $NMC_API_ENDPOINT
+    cat $py_file_name | ssh -i "$PEM" ubuntu@$PUB_IP_ADDR_NAC_SCHEDULER -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null python3 - $NMC_API_USERNAME $NMC_API_PASSWORD $NMC_API_ENDPOINT
 	if [ $? -eq 0 ]; then
     	echo "NAC Scheduler with IP : ${PUB_IP_ADDR_NAC_SCHEDULER}, have access to ${NMC_API_ENDPOINT} "
 	else
