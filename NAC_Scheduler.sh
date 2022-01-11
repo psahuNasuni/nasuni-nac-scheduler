@@ -21,6 +21,7 @@ NMC_ENDPOINT_ACCESSIBILITY() {
 	elif [[ "${AWS_REGION}" == "us-east-1" ]]; then
 		PEM="nac-manager-nv.pem"
 	fi
+	sudo chmod 400 $PEM
 	# nac_scheduler_name = from FourthArgument of NAC_Scheduler.sh, user_sec.txt
     parse_textfile_for_user_secret_keys_values user_sec.txt
 	# parse_textfile_for_nac_scheduler_name user_sec.txt
