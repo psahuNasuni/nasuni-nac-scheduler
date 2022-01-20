@@ -19,7 +19,7 @@ print('Argument List:', str(sys.argv))
 print('endpoint',endpoint)
 try:
     logging.info(sys.argv)
-    url = 'https://' + endpoint + '/auth/login/'
+    url = 'https://' + endpoint + '/api/v1.1/auth/login/'
     logging.info(url)
     values = {'username': username, 'password': password}
     data = urllib.parse.urlencode(values).encode("utf-8")
@@ -32,7 +32,7 @@ try:
         print('Token Generated')
     else:
         print('Token Not generated')
-    cmd = 'curl -k -X GET -H \"Accept: application/json\" -H \"Authorization: Token ' + result['token'] + '\" \"https://' + endpoint + '/volumes/\"'
+    cmd = 'curl -k -X GET -H \"Accept: application/json\" -H \"Authorization: Token ' + result['token'] + '\" \"https://' + endpoint + '/api/v1.1/volumes/\"'
     logging.info(cmd)
     args = shlex.split(cmd)
     process = subprocess.Popen(args, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
