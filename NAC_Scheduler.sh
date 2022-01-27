@@ -201,11 +201,11 @@ add_ip_to_sec_grp() {
 	#SecGrp=$(aws ec2 describe-instances --query "Reservations[].Instances[].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress,SecGrp:GroupId}" --filters "Name=tag:Name,Values='NACScheduler'" "Name=instance-state-name,Values=running" --region us-east-2 --profile nasuni | grep -e "SecGrp" |cut -d":" -f 2|tr -d '"'|tr -d ' ')
 	if [ "$NAC_SCHEDULER_NAME" != "" ]; then
 		#PUB_IP_ADDR_NAC_SCHEDULER=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='$NAC_SCHEDULER_NAME'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" | grep -e "PublicIP" |cut -d":" -f 2|tr -d '"'|tr -d ' ')
-		SECURITY_GROUP_ID=$(aws ec2 describe-instances --query "Reservations[].Instances[].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress,SecurityGroups:SecurityGroups[*]}" --filters "Name=tag:Name,Values='$NAC_SCHEDULER_NAME'" "Name=instance-state-name,Values=running" --region us-east-2 --profile nasuni | grep -e "GroupId" | cut -d":" -f 2 | tr -d '"')
+		SECURITY_GROUP_ID=$(aws ec2 describe-instances --query "Reservations[].Instances[].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress,SecurityGroups:SecurityGroups[*]}" --filters "Name=tag:Name,Values='$NAC_SCHEDULER_NAME'" "Name=instance-state-name,Values=running" --region us-east-2 --profile "${AWS_PROFILE}" | grep -e "GroupId" | cut -d":" -f 2 | tr -d '"')
 		echo "Security group of $NAC_SCHEDULER_NAME is ${SECURITY_GROUP_ID}"
 	else
 		echo "NAC_Schedluer is present .So fetch its sec group."
-		SECURITY_GROUP_ID=$(aws ec2 describe-instances --query "Reservations[].Instances[].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress,SecurityGroups:SecurityGroups[*]}" --filters "Name=tag:Name,Values='NACScheduler'" "Name=instance-state-name,Values=running" --region us-east-2 --profile nasuni | grep -e "GroupId" | cut -d":" -f 2 | tr -d '"')
+		SECURITY_GROUP_ID=$(aws ec2 describe-instances --query "Reservations[].Instances[].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress,SecurityGroups:SecurityGroups[*]}" --filters "Name=tag:Name,Values='NACScheduler'" "Name=instance-state-name,Values=running" --region us-east-2 --profile "${AWS_PROFILE}" | grep -e "GroupId" | cut -d":" -f 2 | tr -d '"')
 		echo "Security group of NACScheduler is ${SECURITY_GROUP_ID}"
 	fi
 	# SECURITY_GROUP_ID=`aws ec2 describe-instances --query "Reservations[].Instances[].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress,SecurityGroups:SecurityGroups[*]}" --filters "Name=tag:Name,Values='NACScheduler'" "Name=instance-state-name,Values=running" --region us-east-2 --profile nasuni |grep -e "GroupId" |cut -d":" -f 2|tr -d '"'`
@@ -213,7 +213,7 @@ add_ip_to_sec_grp() {
 
 	#If OS name is windows
 	#status= $(aws ec2 authorize-security-group-ingress --group-id ${SECURITY_GROUP_NAME} --protocol tcp --port 22 --cidr ${NEW_CIDR})
-	status=$(aws ec2 authorize-security-group-ingress --group-id ${SECURITY_GROUP_ID} --protocol tcp --port 22 --cidr ${NEW_CIDR} 2>/dev/null)
+	status=$(aws ec2 authorize-security-group-ingress --group-id ${SECURITY_GROUP_ID} --profile "${AWS_PROFILE}" --protocol tcp --port 22 --cidr ${NEW_CIDR} 2>/dev/null)
 	# aws ec2 authorize-security-group-ingress --group-name sg-a3204ac8 --protocol tcp --port 22 --cidr 103.168.202.24/24
 	if [ $? -eq 0 ]; then
 		echo "${NEW_CIDR}  updateed to Security Group ${SECURITY_GROUP_ID}"
@@ -383,7 +383,7 @@ if [[ -n "$FOURTH_ARG" ]]; then
 			# Update Secret
 			aws secretsmanager update-secret --secret-id "${USER_SECRET}" \
 			--secret-string file://user_creds_"${NMC_VOLUME_NAME}"_"${ANALYTICS_SERVICE}".json \
-			--region "${AWS_REGION}"
+			--region "${AWS_REGION}" --profile "${AWS_PROFILE}"
 			RES="$?"
 			if [ $RES -ne 0 ]; then
 				echo "INFO ::: $RES Failed to Update Secret $USER_SECRET."
@@ -399,7 +399,7 @@ if [[ -n "$FOURTH_ARG" ]]; then
 			aws secretsmanager create-secret --name "${USER_SECRET}" \
 			--description "Preserving User specific data/secrets to be used for NAC Scheduling" \
 			--secret-string file://user_creds_"${NMC_VOLUME_NAME}"_"${ANALYTICS_SERVICE}".json \
-			--region "${AWS_REGION}"
+			--region "${AWS_REGION}" --profile "${AWS_PROFILE}"
 			RES="$?"
 			if [ $RES -ne 0 ]; then
 				echo "INFO ::: $RES Failed to Create Secret $USER_SECRET as, its already exists."
@@ -442,9 +442,9 @@ parse_4thArgument_for_nac_scheduler_name "$FOURTH_ARG"
 echo "nac_scheduler_name ========== $NAC_SCHEDULER_NAME "
 if [ "$NAC_SCHEDULER_NAME" != "" ]; then
 	### User has provided the NACScheduler Name as Key-Value from 4th Argument
-	PUB_IP_ADDR_NAC_SCHEDULER=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='$NAC_SCHEDULER_NAME'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" | grep -e "PublicIP" | cut -d":" -f 2 | tr -d '"' | tr -d ' ')
+	PUB_IP_ADDR_NAC_SCHEDULER=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='$NAC_SCHEDULER_NAME'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" --profile ${AWS_PROFILE}| grep -e "PublicIP" | cut -d":" -f 2 | tr -d '"' | tr -d ' ')
 else
-	PUB_IP_ADDR_NAC_SCHEDULER=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACScheduler'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" | grep -e "PublicIP" | cut -d":" -f 2 | tr -d '"' | tr -d ' ')
+	PUB_IP_ADDR_NAC_SCHEDULER=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACScheduler'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" --profile ${AWS_PROFILE}| grep -e "PublicIP" | cut -d":" -f 2 | tr -d '"' | tr -d ' ')
 fi
 
 # PUB_IP_ADDR_NAC_SCHEDULER=3.144.254.220
