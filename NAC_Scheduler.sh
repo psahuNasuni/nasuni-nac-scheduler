@@ -96,8 +96,9 @@ check_if_secret_exists() {
 	# Verify the Secret Exists
 	if [[ -n $USER_SECRET ]]; then
 		# echo "USER SECRET:    $USER_SECRET"
-		COMMAND="aws secretsmanager get-secret-value --secret-id ${USER_SECRET} --profile ${AWS_PROFILE} --region ${AWS_REGION}"
-		$COMMAND
+		#COMMAND="aws secretsmanager get-secret-value --secret-id ${USER_SECRET} --profile ${AWS_PROFILE} --region ${AWS_REGION}"
+		COMMAND=`aws secretsmanager get-secret-value --secret-id ${USER_SECRET} --profile ${AWS_PROFILE} --region ${AWS_REGION}`
+		# $COMMAND
 		RES=$?
 		if [[ $RES -eq 0 ]]; then
 			### echo "INFO ::: Secret ${USER_SECRET} Exists. $RES"
@@ -372,7 +373,7 @@ if [[ -n "$FOURTH_ARG" ]]; then
 		USER_SECRET="prod/nac/admin/$NMC_VOLUME_NAME/$ANALYTICS_SERVICE"
 		### Verify the Secret Exists
 		USER_SECRET_EXISTS=$(check_if_secret_exists $USER_SECRET $AWS_PROFILE $AWS_REGION)
-		### echo "INFO ::: USER_SECRET_EXISTS ::: $USER_SECRET_EXISTS "
+		echo "INFO ::: USER_SECRET_EXISTS ::: $USER_SECRET_EXISTS "
 		if [ "$USER_SECRET_EXISTS" != "N" ]; then
 			echo "INFO ::: Fourth argument is a File && the User Secret exists ==> User wants to Update the Secret Values"
 			### Update Secret
@@ -411,10 +412,10 @@ if [[ -n "$FOURTH_ARG" ]]; then
 		USER_SECRET="$FOURTH_ARG"
 
 		### Verify the Secret Exists
-		USER_SECRET_EXISTS=$(check_if_secret_exists $USER_SECRET ${AWS_PROFILE} ${AWS_REGION} | jq -r .Name)
-		### echo "INFOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO $USER_SECRET_EXISTS"
-		if [ "${#USER_SECRET_EXISTS}" -gt 0 ]; then
-		### if [ "$USER_SECRET_EXISTS" == "Y" ]; then
+		USER_SECRET_EXISTS=$(check_if_secret_exists $USER_SECRET ${AWS_PROFILE} ${AWS_REGION}) # | jq -r .Name)
+		echo "INFO ::: User secret Exists:: $USER_SECRET_EXISTS"
+		# if [ "${#USER_SECRET_EXISTS}" -gt 0 ]; then
+		if [ "$USER_SECRET_EXISTS" == "Y" ]; then
 			### Validate Keys in the Secret
 			echo "INFO ::: Check if all Keys are provided"
 			validate_secret_values "$USER_SECRET" nmc_api_username "$AWS_REGION" "$AWS_PROFILE"
