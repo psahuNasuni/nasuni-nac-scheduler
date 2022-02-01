@@ -8,9 +8,8 @@
 DATE_WITH_TIME=$(date "+%Y%m%d-%H%M%S")
 START=$(date +%s)
 
-#CTPROJECT-169
-NMC_ENDPOINT_ACCESSIBILITY() {
-	# NMC_ENDPOINT_ACCESSIBILITY $NAC_SCHEDULER_NAME $PUB_IP_ADDR_NAC_SCHEDULER #$PEM
+nmc_endpoint_accessibility() {
+	### nmc endpoint accessibility $NAC_SCHEDULER_NAME $PUB_IP_ADDR_NAC_SCHEDULER #$PEM
 	NAC_SCHEDULER_NAME="$1"
 	PUB_IP_ADDR_NAC_SCHEDULER="$2"
 	# exit 0
@@ -20,15 +19,17 @@ NMC_ENDPOINT_ACCESSIBILITY() {
 	NMC_API_USERNAME="$4"
 	NMC_API_PASSWORD="$5" #14-19
 
-	if [[ ${AWS_REGION} == "us-east-2" ]]; then
-		PEM="nac-manager.pem"
-	elif [[ "${AWS_REGION}" == "us-east-1" ]]; then
-		PEM="nac-manager-nv.pem"
-	fi
+	# if [[ ${AWS_REGION} == "us-east-2" ]]; then
+	# 	PEM="nac-manager.pem"
+	# elif [[ "${AWS_REGION}" == "us-east-1" ]]; then
+	# 	PEM="nac-manager-nv.pem"
+	# fi
+	PEM="$PEM_KEY_PATH"
+	
 	chmod 400 $PEM
-	# nac_scheduler_name = from FourthArgument of NAC_Scheduler.sh, user_sec.txt
-	# parse_textfile_for_user_secret_keys_values user_sec.txt
-	echo "Inside NMC_ENDPOINT_ACCESSIBILITY"
+	### nac_scheduler_name = from FourthArgument of NAC_Scheduler.sh, user_sec.txt
+	### parse_textfile_for_user_secret_keys_values user_sec.txt
+	echo "INFO ::: Inside nmc_endpoint_accessibility"
 	echo "INFO ::: NAC_SCHEDULER_NAME ::: ${NAC_SCHEDULER_NAME}"
 	echo "INFO ::: PUB_IP_ADDR_NAC_SCHEDULER ::: ${PUB_IP_ADDR_NAC_SCHEDULER}"
 	echo "INFO ::: PEM ::: ${PEM}"
@@ -36,17 +37,17 @@ NMC_ENDPOINT_ACCESSIBILITY() {
 	echo "INFO ::: NMC_API_USERNAME ::: ${NMC_API_USERNAME}"
 	echo "INFO ::: NMC_API_PASSWORD ::: ${NMC_API_PASSWORD}" # 31-37
 
-	echo "PUB_IP_ADDR_NAC_SCHEDULER :"$PUB_IP_ADDR_NAC_SCHEDULER
+	echo "INFO ::: PUB_IP_ADDR_NAC_SCHEDULER :"$PUB_IP_ADDR_NAC_SCHEDULER
 	py_file_name=$(ls check_nmc_visiblity.py)
-	echo "Python File Name-"$py_file_name
+	echo "INFO ::: Python File Name-"$py_file_name
 	cat $py_file_name | ssh -i "$PEM" ubuntu@$PUB_IP_ADDR_NAC_SCHEDULER -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null python3 - $NMC_API_USERNAME $NMC_API_PASSWORD $NMC_API_ENDPOINT
 	if [ $? -eq 0 ]; then
-		echo "NAC Scheduler with IP : ${PUB_IP_ADDR_NAC_SCHEDULER}, have access to NMC API ${NMC_API_ENDPOINT} "
+		echo "INFO ::: NAC Scheduler with IP : ${PUB_IP_ADDR_NAC_SCHEDULER}, have access to NMC API ${NMC_API_ENDPOINT} "
 	else
-		echo "NAC Scheduler with IP : ${PUB_IP_ADDR_NAC_SCHEDULER}, Does NOT have access to NMC API ${NMC_API_ENDPOINT}. Please configure access to NMC "
+		echo "ERROR ::: NAC Scheduler with IP : ${PUB_IP_ADDR_NAC_SCHEDULER}, Does NOT have access to NMC API ${NMC_API_ENDPOINT}. Please configure access to NMC "
 		exit 1
 	fi
-	echo "Completed NMC_ENDPOINT_ACCESSIBILITY Exitting"
+	echo "INFO ::: Completed nmc endpoint accessibility Check. !!!"
 
 }
 parse_4thArgument_for_nac_scheduler_name() {
@@ -56,6 +57,7 @@ parse_4thArgument_for_nac_scheduler_name() {
 		while IFS="=" read -r key value; do
 			case "$key" in
 			"nac_scheduler_name") NAC_SCHEDULER_NAME="$value" ;;
+			"pem_key_path") PEM_KEY_PATH="$value" ;;
 			esac
 		done <"$file"
 	else
@@ -66,8 +68,9 @@ parse_4thArgument_for_nac_scheduler_name() {
 		NMC_API_USERNAME=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.nmc_api_username')
 		NMC_API_PASSWORD=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.nmc_api_password')
 		NMC_API_ENDPOINT=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.nmc_api_endpoint')
+		PEM_KEY_PATH=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.pem_key_path')
 		
-		echo "nac_scheduler_name=$NAC_SCHEDULER_NAME :: nmc_api_username=$NMC_API_USERNAME :: nmc_api_password=$NMC_API_PASSWORD :: nmc_api_endpoint=$NMC_API_ENDPOINT"
+		echo "INFO ::: nac_scheduler_name=$NAC_SCHEDULER_NAME :: nmc_api_username=$NMC_API_USERNAME :: nmc_api_password=$NMC_API_PASSWORD :: nmc_api_endpoint=$NMC_API_ENDPOINT :: pem_key_path=$PEM_KEY_PATH"
 	fi
 }
 
@@ -75,9 +78,9 @@ append_nac_keys_values_to_tfvars() {
 	inputFile="$1" ### Read InputFile
 	outFile="$2"
 	dos2unix $inputFile
-	echo "inputFile ::: $inputFile"
-	echo "outFile ::: $outFile"
-	# echo " " >> $outFile
+	echo "      inputFile ::: $inputFile"
+	echo "      outFile ::: $outFile"
+
 	while IFS="=" read -r key value; do
 		echo "$key ::: $value "
 		if [ ${#key} -ne 0 ]; then
@@ -96,12 +99,11 @@ check_if_secret_exists() {
 		COMMAND="aws secretsmanager get-secret-value --secret-id ${USER_SECRET} --profile ${AWS_PROFILE} --region ${AWS_REGION}"
 		$COMMAND
 		RES=$?
-		#  echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  $RES"
 		if [[ $RES -eq 0 ]]; then
-			# echo "INFO ::: Secret ${USER_SECRET} Exists. $RES"
+			### echo "INFO ::: Secret ${USER_SECRET} Exists. $RES"
 			echo "Y"
 		else
-			# echo "ERROR ::: $RES :: Secret ${USER_SECRET} Does'nt Exist in ${AWS_REGION} region. OR, Invalid Secret name passed as 4th parameter"
+			### echo "ERROR ::: $RES :: Secret ${USER_SECRET} Does'nt Exist in ${AWS_REGION} region. OR, Invalid Secret name passed as 4th parameter"
 			echo "N"
 			# exit 0
 		fi
@@ -125,7 +127,7 @@ validate_secret_values() {
 	SECRET_KEY=$2
 	AWS_REGION=$3
 	AWS_PROFILE=$4
-	echo "SECRET_KEY ::: $SECRET_KEY"
+	echo "INFO ::: Secret_key ::: $SECRET_KEY"
 	SECRET_VALUE=""
 	if [ "$SECRET_KEY" == "nmc_api_username" ]; then
 		SECRET_VALUE=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.nmc_api_username')
@@ -141,9 +143,11 @@ validate_secret_values() {
 		SECRET_VALUE=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.destination_bucket')
 	elif [ "$SECRET_KEY" == "volume_key" ]; then
 		SECRET_VALUE=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.volume_key')
+	elif [ "$SECRET_KEY" == "pem_key_path" ]; then
+		SECRET_VALUE=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.pem_key_path')
 	fi
 	if [ -n "$SECRET_VALUE" ]; then
-		echo "SEC ::: $SECRET_NAME ::: $SECRET_KEY ::: $SECRET_VALUE"
+		echo "INFO ::: SEC ::: $SECRET_NAME ::: $SECRET_KEY ::: $SECRET_VALUE"
 	else # NOT WORKING - It should go to else part when  SECRET_VALUE is null
 		echo "ERROR ::: Secret Key $SECRET_KEY Does not Exist."
 		echo "ERROR ::: Invalid value for Key $SECRET_KEY."
@@ -163,6 +167,7 @@ parse_textfile_for_user_secret_keys_values() {
 		"volume_key") VOLUME_KEY="$value" ;;
 		"volume_key_passphrase") VOLUME_KEY_PASSPHRASE="$value" ;;
 		"destination_bucket") DESTINATION_BUCKET="$value" ;;
+		"pem_key_path") PEM_KEY_PATH="$value" ;;
 		esac
 	done <"$file"
 }
@@ -186,15 +191,15 @@ create_JSON_from_Input_user_KVPfile() {
 ###########Adding Local IP to Security Group which is realted to NAC Public IP Address
 add_ip_to_sec_grp() {
 	NAC_SCHEDULER_IP_ADDR=$1
-	echo "NAC_SCHEDULER_PUB_IP_ADDR add_ip_to_sec_grp ${NAC_SCHEDULER_IP_ADDR}"
+	echo "INFO ::: NAC_SCHEDULER_PUB_IP_ADDR add_ip_to_sec_grp ${NAC_SCHEDULER_IP_ADDR}"
 	echo $(curl checkip.amazonaws.com) >test.txt
 
 	LOCAL_IP=$(cat test.txt)
 
-	echo "Public IP of the local machine is ${LOCAL_IP}"
+	echo "INFO ::: Public IP of the local machine is ${LOCAL_IP}"
 	NEW_CIDR="${LOCAL_IP}"/32
-	echo "NEW_CIDR :- ${NEW_CIDR}"
-	#Get NAC Manager IP
+	echo "INFO ::: NEW_CIDR :- ${NEW_CIDR}"
+	### Get NAC Scheduler IP
 
 	# NAC_SCHEDULER_PUB_IP_ADDR=$(aws ec2 describe-instances --query "Reservations[].Instances[].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACScheduler'" "Name=instance-state-name,Values=running" --region us-east-2 --profile nasuni | grep -e "PublicIP" |cut -d":" -f 2|tr -d '"'|tr -d ' ')
 	# echo "NAC_SCHEDULER_IP_ADDR ::: ${NAC_SCHEDULER_IP_ADDR}"
@@ -202,14 +207,14 @@ add_ip_to_sec_grp() {
 	if [ "$NAC_SCHEDULER_NAME" != "" ]; then
 		#PUB_IP_ADDR_NAC_SCHEDULER=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='$NAC_SCHEDULER_NAME'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" | grep -e "PublicIP" |cut -d":" -f 2|tr -d '"'|tr -d ' ')
 		SECURITY_GROUP_ID=$(aws ec2 describe-instances --query "Reservations[].Instances[].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress,SecurityGroups:SecurityGroups[*]}" --filters "Name=tag:Name,Values='$NAC_SCHEDULER_NAME'" "Name=instance-state-name,Values=running" --region us-east-2 --profile "${AWS_PROFILE}" | grep -e "GroupId" | cut -d":" -f 2 | tr -d '"')
-		echo "Security group of $NAC_SCHEDULER_NAME is ${SECURITY_GROUP_ID}"
+		echo "INFO ::: Security group of $NAC_SCHEDULER_NAME is ${SECURITY_GROUP_ID}"
 	else
-		echo "NAC_Schedluer is present .So fetch its sec group."
+		echo "INFO ::: NAC_Schedluer is present .So fetch its sec group."
 		SECURITY_GROUP_ID=$(aws ec2 describe-instances --query "Reservations[].Instances[].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress,SecurityGroups:SecurityGroups[*]}" --filters "Name=tag:Name,Values='NACScheduler'" "Name=instance-state-name,Values=running" --region us-east-2 --profile "${AWS_PROFILE}" | grep -e "GroupId" | cut -d":" -f 2 | tr -d '"')
-		echo "Security group of NACScheduler is ${SECURITY_GROUP_ID}"
+		echo "INFO ::: Security group of NACScheduler is ${SECURITY_GROUP_ID}"
 	fi
 	# SECURITY_GROUP_ID=`aws ec2 describe-instances --query "Reservations[].Instances[].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress,SecurityGroups:SecurityGroups[*]}" --filters "Name=tag:Name,Values='NACScheduler'" "Name=instance-state-name,Values=running" --region us-east-2 --profile nasuni |grep -e "GroupId" |cut -d":" -f 2|tr -d '"'`
-	echo "Security group of NACScheduler is ${SECURITY_GROUP_ID}"
+	echo "INFO ::: Security group of NACScheduler is ${SECURITY_GROUP_ID}"
 
 	#If OS name is windows
 	#status= $(aws ec2 authorize-security-group-ingress --group-id ${SECURITY_GROUP_NAME} --protocol tcp --port 22 --cidr ${NEW_CIDR})
@@ -252,13 +257,7 @@ validate_aws_profile() {
 ########################## Create CRON ############################################################
 Schedule_CRON_JOB() {
 	NAC_SCHEDULER_IP_ADDR=$1
-	# Temporary Code Till alternative for PEM file is found
-	if [[ ${AWS_REGION} == "us-east-2" ]]; then
-		PEM="nac-manager.pem"
-	elif [[ "${AWS_REGION}" == "us-east-1" ]]; then
-		PEM="nac-manager-nv.pem"
-	fi
-
+	PEM="$PEM_KEY_PATH"
 	chmod 400 $PEM
 
 	echo "INFO ::: Public IP Address:- $NAC_SCHEDULER_IP_ADDR"
@@ -366,21 +365,19 @@ if [[ -n "$FOURTH_ARG" ]]; then
 		validate_kvp nmc_api_endpoint "${NMC_API_ENDPOINT}"
 		validate_kvp web_access_appliance_address "${WEB_ACCESS_APPLIANCE_ADDRESS}"
 		validate_kvp destination_bucket "${DESTINATION_BUCKET}"
-		# nac_scheduler_name   - Get the value -- If its not null / "" then NAC_SCHEDULER_NAME = ${nac_scheduler_name}
+		validate_kvp pem_key_path "${PEM_KEY_PATH}"
+		### nac_scheduler_name   - Get the value -- If its not null / "" then NAC_SCHEDULER_NAME = ${nac_scheduler_name}
 		create_JSON_from_Input_user_KVPfile $FOURTH_ARG >user_creds_"${NMC_VOLUME_NAME}"_"${ANALYTICS_SERVICE}".json
-		#  echo "@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#"
-		# exit 1
-		# Formation of User Secret Name
+		### Formation of User Secret Name
 		USER_SECRET="prod/nac/admin/$NMC_VOLUME_NAME/$ANALYTICS_SERVICE"
-		# Verify the Secret Exists
+		### Verify the Secret Exists
 		USER_SECRET_EXISTS=$(check_if_secret_exists $USER_SECRET $AWS_PROFILE $AWS_REGION)
-		# echo "INFO ::: USER_SECRET_EXISTS ::: $USER_SECRET_EXISTS "
+		### echo "INFO ::: USER_SECRET_EXISTS ::: $USER_SECRET_EXISTS "
 		if [ "$USER_SECRET_EXISTS" != "N" ]; then
-			# echo "&&&&&&&&&&&&&&&&&&&&&&&&&& ::: $USER_SECRET_EXISTS "
 			echo "INFO ::: Fourth argument is a File && the User Secret exists ==> User wants to Update the Secret Values"
-			# Update Secret
+			### Update Secret
 			echo "INFO ::: Update Secret $USER_SECRET "
-			# Update Secret
+			### Update Secret
 			aws secretsmanager update-secret --secret-id "${USER_SECRET}" \
 			--secret-string file://user_creds_"${NMC_VOLUME_NAME}"_"${ANALYTICS_SERVICE}".json \
 			--region "${AWS_REGION}" --profile "${AWS_PROFILE}"
@@ -393,8 +390,8 @@ if [[ -n "$FOURTH_ARG" ]]; then
 			fi
 		else
 			## Fourth argument is a File && the User Secret Doesn't exist ==> User wants to Create a new Secret
-			# echo "################################# ::: $USER_SECRET_EXISTS "
-			# Create Secret
+			### echo "################################# ::: $USER_SECRET_EXISTS "
+			### Create Secret
 			echo "INFO ::: Create Secret $USER_SECRET"
 			aws secretsmanager create-secret --name "${USER_SECRET}" \
 			--description "Preserving User specific data/secrets to be used for NAC Scheduling" \
@@ -413,12 +410,12 @@ if [[ -n "$FOURTH_ARG" ]]; then
 		echo "INFO ::: Fourth Argument $FOURTH_ARG is passed as User Secret Name"
 		USER_SECRET="$FOURTH_ARG"
 
-		# Verify the Secret Exists
+		### Verify the Secret Exists
 		USER_SECRET_EXISTS=$(check_if_secret_exists $USER_SECRET ${AWS_PROFILE} ${AWS_REGION} | jq -r .Name)
-		# echo "INFOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO $USER_SECRET_EXISTS"
+		### echo "INFOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO $USER_SECRET_EXISTS"
 		if [ "${#USER_SECRET_EXISTS}" -gt 0 ]; then
-		# if [ "$USER_SECRET_EXISTS" == "Y" ]; then
-			# Validate Keys in the Secret
+		### if [ "$USER_SECRET_EXISTS" == "Y" ]; then
+			### Validate Keys in the Secret
 			echo "INFO ::: Check if all Keys are provided"
 			validate_secret_values "$USER_SECRET" nmc_api_username "$AWS_REGION" "$AWS_PROFILE"
 			validate_secret_values "$USER_SECRET" nmc_api_password "$AWS_REGION" "$AWS_PROFILE"
@@ -427,6 +424,7 @@ if [[ -n "$FOURTH_ARG" ]]; then
 			validate_secret_values "$USER_SECRET" web_access_appliance_address "$AWS_REGION" "$AWS_PROFILE"
 			validate_secret_values "$USER_SECRET" destination_bucket "$AWS_REGION" "$AWS_PROFILE"
 			validate_secret_values "$USER_SECRET" volume_key "$AWS_REGION" "$AWS_PROFILE"
+			validate_secret_values "$USER_SECRET" pem_key_path "$AWS_REGION" "$AWS_PROFILE"
 		fi
 	fi
 else
@@ -453,11 +451,10 @@ if [ "$PUB_IP_ADDR_NAC_SCHEDULER" != "" ]; then
 	echo "INFO ::: NAC Scheduler Instance is Available. IP Address: $PUB_IP_ADDR_NAC_SCHEDULER"
 	# Call this function to add Local public IP to Security group of NAC_SCHEDULER IP
 	add_ip_to_sec_grp $PUB_IP_ADDR_NAC_SCHEDULER $NAC_SCHEDULER_NAME
-	#CTPROJECT-169
-	# NMC_ENDPOINT_ACCESSIBILITY $NAC_SCHEDULER_NAME $PUB_IP_ADDR_NAC_SCHEDULER
-	NMC_ENDPOINT_ACCESSIBILITY $NAC_SCHEDULER_NAME $PUB_IP_ADDR_NAC_SCHEDULER $NMC_API_ENDPOINT $NMC_API_USERNAME $NMC_API_PASSWORD #458
+	# nmc endpoint accessibility $NAC_SCHEDULER_NAME $PUB_IP_ADDR_NAC_SCHEDULER
+	nmc_endpoint_accessibility $NAC_SCHEDULER_NAME $PUB_IP_ADDR_NAC_SCHEDULER $NMC_API_ENDPOINT $NMC_API_USERNAME $NMC_API_PASSWORD #458
 
-	echo "exiting NMC_ENDPOINT_ACCESSIBILITY add_ip_to_sec_grp completed"
+	echo "INFO ::: Exiting nmc endpoint accessibility add_ip_to_sec_grp completed"
 	# exit 1
 	Schedule_CRON_JOB $PUB_IP_ADDR_NAC_SCHEDULER
 
@@ -472,7 +469,7 @@ else
 	GIT_REPO_NAME=$(echo ${GIT_REPO} | sed 's/.*\/\([^ ]*\/[^.]*\).*/\1/' | cut -d "/" -f 2)
 	echo "INFO ::: Start - Git Clone to ${GIT_REPO}"
 	echo "$GIT_REPO"
-	echo "GIT_REPO_NAME $GIT_REPO_NAME"
+	echo "INFO ::: GIT_REPO_NAME - $GIT_REPO_NAME"
 	pwd
 	ls
 	rm -rf "${GIT_REPO_NAME}"
@@ -498,14 +495,21 @@ else
 	pwd
 	TFVARS_NAC_SCHEDULER="NACScheduler.tfvars"
 	rm -rf "$TFVARS_NAC_SCHEDULER"
+    AWS_KEY=$(echo ${PEM_KEY_PATH} | sed 's/.*\/\([^ ]*\/[^.]*\).*/\1/' | cut -d "/" -f 2)
+	echo $AWS_KEY
+	PEM="$AWS_KEY.pem"
+	cp $PEM_KEY_PATH ./
+	ls
 	echo "aws_profile="\"$AWS_PROFILE\" >>$TFVARS_NAC_SCHEDULER
 	echo "region="\"$AWS_REGION\" >>$TFVARS_NAC_SCHEDULER
 	if [[ "$NAC_SCHEDULER_NAME" != "" ]]; then
 		echo "nac_scheduler_name="\"$NAC_SCHEDULER_NAME\" >>$TFVARS_NAC_SCHEDULER
+		echo "pem_key_file="\"$PEM\" >>$TFVARS_NAC_SCHEDULER
+		echo "aws_key="\"$AWS_KEY\" >>$TFVARS_NAC_SCHEDULER
 	fi
 
-	# dos2unix $TFVARS_NAC_SCHEDULER
-	# exit 0
+	dos2unix $TFVARS_NAC_SCHEDULER
+
 	COMMAND="terraform apply -var-file=$TFVARS_NAC_SCHEDULER -auto-approve"
 	$COMMAND
 	if [ $? -eq 0 ]; then
@@ -514,21 +518,19 @@ else
 		echo "INFO ::: NAC Scheduler EC2 PROVISIONING ::: Terraform apply ::: FAILED."
 		exit 1
 	fi
-	# rm -rf "$TFVARS_NAC_SCHEDULER"
 	ip=$(cat NACScheduler_IP.txt)
 	NAC_SCHEDULER_IP_ADDR=$ip
-	echo 'New pubilc IP just created:-'$ip
+	echo 'INFO ::: New pubilc IP just created:-'$ip
 	pwd
 	cd ../
 	pwd
-	# Call this function to add Local public IP to Security group of NAC_SCHEDULER IP
+	## Call this function to add Local public IP to Security group of NAC_SCHEDULER IP
 	add_ip_to_sec_grp ${NAC_SCHEDULER_IP_ADDR}
-	#CTPROJECT-169
-	#NMC_ENDPOINT_ACCESSIBILITY $NAC_SCHEDULER_NAME $PUB_IP_ADDR_NAC_SCHEDULER
-	NMC_ENDPOINT_ACCESSIBILITY $NAC_SCHEDULER_NAME ${NAC_SCHEDULER_IP_ADDR} $NMC_API_ENDPOINT $NMC_API_USERNAME $NMC_API_PASSWORD #458
+	## nmc endpoint accessibility $NAC_SCHEDULER_NAME $PUB_IP_ADDR_NAC_SCHEDULER
+	nmc_endpoint_accessibility $NAC_SCHEDULER_NAME ${NAC_SCHEDULER_IP_ADDR} $NMC_API_ENDPOINT $NMC_API_USERNAME $NMC_API_PASSWORD #458
 	Schedule_CRON_JOB $NAC_SCHEDULER_IP_ADDR
-	# Setup_Search_Lambda
-	# Setup_Search_UI
+	## Setup_Search_Lambda
+	## Setup_Search_UI
 
 fi
 
