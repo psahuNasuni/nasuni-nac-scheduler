@@ -115,7 +115,7 @@ validate_kvp() {
 	key="$1"
 	val="$2"
 	if [[ $val == "" ]]; then
-		echo "INFO ::: Empty Value provided. Please provide a valid value for ${key}."
+		echo "ERROR ::: Empty Value provided. Please provide a valid value for ${key}."
 		exit 1
 	else
 		echo "INFO ::: Value of ${key} is ${val}"
@@ -393,7 +393,7 @@ if [[ -n "$FOURTH_ARG" ]]; then
 			--region "${AWS_REGION}" --profile "${AWS_PROFILE}"
 			RES="$?"
 			if [ $RES -ne 0 ]; then
-				echo "INFO ::: $RES Failed to Create Secret $USER_SECRET as, its already exists."
+				echo "ERROR ::: $RES Failed to Create Secret $USER_SECRET as, its already exists."
 				exit 1
 			elif [ $RES -eq 0 ]; then
 				echo "INFO ::: Secret $USER_SECRET Created"
@@ -403,7 +403,7 @@ if [[ -n "$FOURTH_ARG" ]]; then
 	else ####  Fourth Argument is passed as User Secret Name
 		echo "INFO ::: Fourth Argument $FOURTH_ARG is passed as User Secret Name"
 		USER_SECRET="$FOURTH_ARG"
-
+		
 		### Verify the Secret Exists
 		USER_SECRET_EXISTS=$(check_if_secret_exists $USER_SECRET ${AWS_PROFILE} ${AWS_REGION}) # | jq -r .Name)
 		echo "INFO ::: User secret Exists:: $USER_SECRET_EXISTS"
@@ -508,7 +508,7 @@ else
 	if [ $? -eq 0 ]; then
 		echo "INFO ::: NAC Scheduler EC2 PROVISIONING ::: Terraform apply ::: COMPLETED . . . . . . . . . . . . . . . . . . ."
 	else
-		echo "INFO ::: NAC Scheduler EC2 PROVISIONING ::: Terraform apply ::: FAILED."
+		echo "ERROR ::: NAC Scheduler EC2 PROVISIONING ::: Terraform apply ::: FAILED."
 		exit 1
 	fi
 	ip=$(cat NACScheduler_IP.txt)
