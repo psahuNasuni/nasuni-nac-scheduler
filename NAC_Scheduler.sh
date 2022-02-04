@@ -17,6 +17,26 @@ else
 fi
 
 }
+
+validate_github() {
+	GITHUB_ORGANIZATION=$1
+	REPO_FOLDER=$2
+	if [[ $GITHUB_ORGANIZATION == "" ]];then
+		GITHUB_ORGANIZATION="NasuniLabs"
+		echo "INFO ::: github_organization not provided as Secret Key-Value pair. So considering NasuliLabs as the default value !!!"
+	fi 
+	GIT_REPO="https://github.com/$GITHUB_ORGANIZATION/$REPO_FOLDER.git"
+	echo "INFO ::: git repo $GIT_REPO"
+	git ls-remote $GIT_REPO -q
+	REPO_EXISTS=$?
+	if [ $REPO_EXISTS -ne 0 ]; then
+		echo "ERROR ::: Unable to Access the git repo $GIT_REPO. Execution STOPPED"
+		exit 1
+	else
+		echo "INFO ::: git repo accessible. Continue . . . Provisioning . . . "
+	fi
+}
+
 nmc_endpoint_accessibility() {
 	### nmc endpoint accessibility $NAC_SCHEDULER_NAME $PUB_IP_ADDR_NAC_SCHEDULER #$PEM
 	NAC_SCHEDULER_NAME="$1"
@@ -58,6 +78,7 @@ parse_4thArgument_for_nac_scheduler_name() {
 			case "$key" in
 			"nac_scheduler_name") NAC_SCHEDULER_NAME="$value" ;;
 			"pem_key_path") PEM_KEY_PATH="$value" ;;
+			"github_organization") GITHUB_ORGANIZATION="$value" ;;
 			esac
 		done <"$file"
 	else
@@ -69,7 +90,7 @@ parse_4thArgument_for_nac_scheduler_name() {
 		NMC_API_PASSWORD=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.nmc_api_password')
 		NMC_API_ENDPOINT=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.nmc_api_endpoint')
 		PEM_KEY_PATH=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.pem_key_path')
-		
+		GITHUB_ORGANIZATION=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.github_organization')
 		echo "INFO ::: nac_scheduler_name=$NAC_SCHEDULER_NAME :: nmc_api_username=$NMC_API_USERNAME :: nmc_api_password=$NMC_API_PASSWORD :: nmc_api_endpoint=$NMC_API_ENDPOINT :: pem_key_path=$PEM_KEY_PATH"
 	fi
 }
@@ -171,6 +192,7 @@ parse_textfile_for_user_secret_keys_values() {
 		"volume_key_passphrase") VOLUME_KEY_PASSPHRASE="$value" ;;
 		"destination_bucket") DESTINATION_BUCKET="$value" ;;
 		"pem_key_path") PEM_KEY_PATH="$value" ;;
+		"github_organization") GITHUB_ORGANIZATION="$value" ;;
 		esac
 	done <"$file"
 }
@@ -194,31 +216,32 @@ create_JSON_from_Input_user_KVPfile() {
 ###########Adding Local IP to Security Group which is realted to NAC Public IP Address
 add_ip_to_sec_grp() {
 	NAC_SCHEDULER_IP_ADDR=$1
-	echo "INFO ::: NAC_SCHEDULER_PUB_IP_ADDR add_ip_to_sec_grp ${NAC_SCHEDULER_IP_ADDR}"
-	echo $(curl checkip.amazonaws.com) >test.txt
+	echo "INFO ::: Getting Public IP of the local machine."
+	echo $(curl checkip.amazonaws.com) >LOCAL_IP.txt
 
-	LOCAL_IP=$(cat test.txt)
-
+	LOCAL_IP=$(cat LOCAL_IP.txt)
+	rm -rf LOCAL_IP.txt
 	echo "INFO ::: Public IP of the local machine is ${LOCAL_IP}"
 	NEW_CIDR="${LOCAL_IP}"/32
 	echo "INFO ::: NEW_CIDR :- ${NEW_CIDR}"
 	### Get NAC Scheduler IP
 	if [ "$NAC_SCHEDULER_NAME" != "" ]; then
-		SECURITY_GROUP_ID=$(aws ec2 describe-instances --query "Reservations[].Instances[].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress,SecurityGroups:SecurityGroups[*]}" --filters "Name=tag:Name,Values='$NAC_SCHEDULER_NAME'" "Name=instance-state-name,Values=running" --region us-east-2 --profile "${AWS_PROFILE}" | grep -e "GroupId" | cut -d":" -f 2 | tr -d '"')
+		SECURITY_GROUP_ID=$(aws ec2 describe-instances --query "Reservations[].Instances[].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress,SecurityGroups:SecurityGroups[*]}" --filters "Name=tag:Name,Values='$NAC_SCHEDULER_NAME'" "Name=instance-state-name,Values=running" --region $AWS_REGION --profile "${AWS_PROFILE}" | grep -e "GroupId" | cut -d":" -f 2 | tr -d '"')
 		echo $SECURITY_GROUP_ID
 		echo "INFO ::: Security group of $NAC_SCHEDULER_NAME is $SECURITY_GROUP_ID"
 	else
-		echo "INFO ::: NAC_Schedluer is present .So fetch its sec group."
-		SECURITY_GROUP_ID=$(aws ec2 describe-instances --query "Reservations[].Instances[].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress,SecurityGroups:SecurityGroups[*]}" --filters "Name=tag:Name,Values='NACScheduler'" "Name=instance-state-name,Values=running" --region us-east-2 --profile "${AWS_PROFILE}" | grep -e "GroupId" | cut -d":" -f 2 | tr -d '"')
-		echo "INFO ::: Security group of NACScheduler is $SECURITY_GROUP_ID"
+		echo "INFO ::: NAC Scheduler Instance $NAC_SCHEDULER_NAME is present .So fetching its security group . . . . . "
+		SECURITY_GROUP_ID=$(aws ec2 describe-instances --query "Reservations[].Instances[].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress,SecurityGroups:SecurityGroups[*]}" --filters "Name=tag:Name,Values='NACScheduler'" "Name=instance-state-name,Values=running" --region $AWS_REGION --profile "${AWS_PROFILE}" | grep -e "GroupId" | cut -d":" -f 2 | tr -d '"')
+		echo $SECURITY_GROUP_ID
+		echo "INFO ::: Security group of NAC Scheduler Instance $NAC_SCHEDULER_NAME is $SECURITY_GROUP_ID"
 	fi
 	#If OS name is windows
 	status=$(aws ec2 authorize-security-group-ingress --group-id ${SECURITY_GROUP_ID} --profile "${AWS_PROFILE}" --protocol tcp --port 22 --cidr ${NEW_CIDR} 2>/dev/null)
 	# aws ec2 authorize-security-group-ingress --group-name sg-a3204ac8 --protocol tcp --port 22 --cidr 103.168.202.24/24
 	if [ $? -eq 0 ]; then
-		echo "${NEW_CIDR}  updateed to Security Group ${SECURITY_GROUP_ID}"
+		echo "INFO ::: Local Computer IP $NEW_CIDR updated to inbound rule of Security Group $SECURITY_GROUP_ID"
 	else
-		echo ${NEW_CIDR} already available to Security Group ${SECURITY_GROUP_ID}
+		echo "INFO ::: IP $NEW_CIDR already available in inbound rule of Security Group $SECURITY_GROUP_ID"
 		# echo "FAIL"
 	fi
 
@@ -247,7 +270,6 @@ validate_aws_profile() {
 	echo "INFO ::: AWS_REGION=$AWS_REGION"
 	echo "INFO ::: NMC_VOLUME_NAME=$NMC_VOLUME_NAME"
 	echo "INFO ::: AWS profile Validation SUCCESS !!!"
-
 }
 ########################## Create CRON ############################################################
 Schedule_CRON_JOB() {
@@ -259,7 +281,7 @@ Schedule_CRON_JOB() {
 
 	echo "INFO ::: Public IP Address:- $NAC_SCHEDULER_IP_ADDR"
 	echo "ssh -i "$PEM" ubuntu@$NAC_SCHEDULER_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null"
-	### Create TFVARS File
+	### Create TFVARS File for PROVISION_NAC.SH which is Used by CRON JOB - to Provision NAC Stack
 	CRON_DIR_NAME="${NMC_VOLUME_NAME}_${ANALYTICS_SERVICE}"
 	TFVARS_FILE_NAME="${CRON_DIR_NAME}.tfvars"
 	rm -rf "$TFVARS_FILE_NAME"
@@ -267,6 +289,7 @@ Schedule_CRON_JOB() {
 	echo "region="\"$AWS_REGION\" >>$TFVARS_FILE_NAME
 	echo "volume_name="\"$NMC_VOLUME_NAME\" >>$TFVARS_FILE_NAME
 	echo "user_secret="\"$USER_SECRET\" >>$TFVARS_FILE_NAME
+	echo "github_organization="\"$GITHUB_ORGANIZATION\" >>$TFVARS_FILE_NAME
 	if [ $ARG_COUNT -eq 5 ]; then
 		echo "INFO ::: $ARG_COUNT th Argument is supplied as ::: $NAC_INPUT_KVP"
 		append_nac_keys_values_to_tfvars $NAC_INPUT_KVP $TFVARS_FILE_NAME
@@ -345,14 +368,14 @@ validate_aws_profile
 ########## Check If fourth argument is provided
 USER_SECRET_EXISTS="N"
 if [[ -n "$FOURTH_ARG" ]]; then
-	########## Check If fourth argument is a file
+	### Check If fourth argument is a file
 	if [ -f "$FOURTH_ARG" ]; then
 		echo "INFO ::: Fourth argument is a File ${FOURTH_ARG}"
 
-		# Parse the user data - KVP
+		### Parse the user data - KVP
 		parse_textfile_for_user_secret_keys_values "$FOURTH_ARG"
 
-		#### Validate the user data file and the provided values
+		### Validate the user data file and the provided values
 		echo "INFO ::: Validating the user data file ${FOURTH_ARG} and the provided values"
 		validate_kvp nmc_api_username "${NMC_API_USERNAME}"
 		validate_kvp nmc_api_password "${NMC_API_PASSWORD}"
@@ -361,6 +384,7 @@ if [[ -n "$FOURTH_ARG" ]]; then
 		validate_kvp web_access_appliance_address "${WEB_ACCESS_APPLIANCE_ADDRESS}"
 		validate_kvp destination_bucket "${DESTINATION_BUCKET}"
 		validate_kvp pem_key_path "${PEM_KEY_PATH}"
+		check_if_pem_file_exists $PEM_KEY_PATH
 		### nac_scheduler_name   - Get the value -- If its not null / "" then NAC_SCHEDULER_NAME = ${nac_scheduler_name}
 		create_JSON_from_Input_user_KVPfile $FOURTH_ARG >user_creds_"${NMC_VOLUME_NAME}"_"${ANALYTICS_SERVICE}".json
 		### Formation of User Secret Name
@@ -432,15 +456,13 @@ echo "INFO ::: Get IP Address of NAC Scheduler Instance"
 NAC_SCHEDULER_NAME=""
 # parse_textfile_for_nac_scheduler_name "$FOURTH_ARG"
 parse_4thArgument_for_nac_scheduler_name "$FOURTH_ARG"
-echo "nac_scheduler_name ========== $NAC_SCHEDULER_NAME "
+echo "INFO ::: nac_scheduler_name = $NAC_SCHEDULER_NAME "
 if [ "$NAC_SCHEDULER_NAME" != "" ]; then
 	### User has provided the NACScheduler Name as Key-Value from 4th Argument
 	PUB_IP_ADDR_NAC_SCHEDULER=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='$NAC_SCHEDULER_NAME'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" --profile ${AWS_PROFILE}| grep -e "PublicIP" | cut -d":" -f 2 | tr -d '"' | tr -d ' ')
 else
 	PUB_IP_ADDR_NAC_SCHEDULER=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACScheduler'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" --profile ${AWS_PROFILE}| grep -e "PublicIP" | cut -d":" -f 2 | tr -d '"' | tr -d ' ')
 fi
-
-# PUB_IP_ADDR_NAC_SCHEDULER=3.144.254.220
 echo "INFO ::: PUB_IP_ADDR_NAC_SCHEDULER ::: ${PUB_IP_ADDR_NAC_SCHEDULER}"
 if [ "$PUB_IP_ADDR_NAC_SCHEDULER" != "" ]; then
 	echo "INFO ::: NAC Scheduler Instance is Available. IP Address: $PUB_IP_ADDR_NAC_SCHEDULER"
@@ -454,11 +476,13 @@ if [ "$PUB_IP_ADDR_NAC_SCHEDULER" != "" ]; then
 else
 	## "NAC Scheduler is not present. Creating new EC2 machine."
 	echo "INFO ::: NAC Scheduler Instance is not present. Creating new EC2 machine."
-	### Download Provisioning Code from GitHub
-	GIT_REPO="https://github.com/psahuNasuni/prov_nacmanager.git"
+	########## Download NAC Scheduler Instance Provisioning Code from GitHub ##########
+	### GITHUB_ORGANIZATION defaults to NasuniLabs
+	REPO_FOLDER="prov_nacmanager"
+	validate_github $GITHUB_ORGANIZATION $REPO_FOLDER 
 	GIT_REPO_NAME=$(echo ${GIT_REPO} | sed 's/.*\/\([^ ]*\/[^.]*\).*/\1/' | cut -d "/" -f 2)
-	echo "INFO ::: Start - Git Clone to ${GIT_REPO}"
-	echo "$GIT_REPO"
+	echo "INFO ::: Begin - Git Clone to ${GIT_REPO}"
+	echo "INFO ::: $GIT_REPO"
 	echo "INFO ::: GIT_REPO_NAME - $GIT_REPO_NAME"
 	pwd
 	ls
@@ -467,7 +491,7 @@ else
 	$COMMAND
 	RESULT=$?
 	if [ $RESULT -eq 0 ]; then
-		echo "INFO ::: git clone SUCCESS"
+		echo "INFO ::: git clone SUCCESS for repo ::: $GIT_REPO_NAME"
 		cd "${GIT_REPO_NAME}"
 	elif [ $RESULT -eq 128 ]; then
 		cd "${GIT_REPO_NAME}"
@@ -475,13 +499,14 @@ else
 		COMMAND="git pull origin main"
 		$COMMAND
 	fi
+	# exit 888
 	### Download Provisioning Code from GitHub completed
-	echo "INFO ::: NAC Scheduler EC2 PROVISIONING ::: STARTED ::: Executing the Terraform scripts . . . . . . . . . . . ."
+	echo "INFO ::: NAC Scheduler EC2 provisioning ::: BEGIN - Executing ::: Terraform init . . . . . . . . "
 	COMMAND="terraform init"
 	$COMMAND
-	echo "INFO ::: NAC Scheduler EC2 PROVISIONING ::: Initialized Terraform Libraries/Dependencies"
-	echo "INFO ::: NAC Scheduler EC2 PROVISIONING ::: STARTED ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
-	## Create .tfvars file to pass region as AWS_REGION sed --task
+	echo "INFO ::: NAC Scheduler EC2 provisioning ::: FINISH - Executing ::: Terraform init."
+	echo "INFO ::: NAC Scheduler EC2 provisioning ::: BEGIN - Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
+	### Create .tfvars file to be used by the NACScheduler Instance Provisioning
 	pwd
 	TFVARS_NAC_SCHEDULER="NACScheduler.tfvars"
 	rm -rf "$TFVARS_NAC_SCHEDULER"
@@ -506,9 +531,9 @@ else
 	COMMAND="terraform apply -var-file=$TFVARS_NAC_SCHEDULER -auto-approve"
 	$COMMAND
 	if [ $? -eq 0 ]; then
-		echo "INFO ::: NAC Scheduler EC2 PROVISIONING ::: Terraform apply ::: COMPLETED . . . . . . . . . . . . . . . . . . ."
+		echo "INFO ::: NAC Scheduler EC2 provisioning ::: FINISH - Executing ::: Terraform apply ::: SUCCESS."
 	else
-		echo "ERROR ::: NAC Scheduler EC2 PROVISIONING ::: Terraform apply ::: FAILED."
+		echo "ERROR ::: NAC Scheduler EC2 provisioning ::: FINISH - Executing ::: Terraform apply ::: FAILED."
 		exit 1
 	fi
 	ip=$(cat NACScheduler_IP.txt)

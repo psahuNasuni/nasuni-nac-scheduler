@@ -21,6 +21,8 @@
 #############################################################################################
 set -e
 
+
+
 START=$(date +%s)
 {
 TFVARS_FILE=$1
@@ -31,14 +33,39 @@ read_TFVARS() {
       "aws_profile") AWS_PROFILE="$value" ;;
       "region") AWS_REGION="$value" ;;
       "volume_name") NMC_VOLUME_NAME="$value" ;;
+      "github_organization") GITHUB_ORGANIZATION="$value" ;;
     esac
   done < "$file"
 }
+
+
+validate_github() {
+	GITHUB_ORGANIZATION=$1
+	REPO_FOLDER=$2
+	if [[ $GITHUB_ORGANIZATION == "" ]];then
+		GITHUB_ORGANIZATION="NasuniLabs"
+		echo "INFO ::: github_organization not provided as Secret Key-Value pair. So considering NasuliLabs as the default value !!!"
+	fi 
+	GIT_REPO="https://github.com/$GITHUB_ORGANIZATION/$REPO_FOLDER.git"
+	echo "INFO ::: git repo $GIT_REPO"
+	git ls-remote $GIT_REPO -q
+	REPO_EXISTS=$?
+	if [ $REPO_EXISTS -ne 0 ]; then
+		echo "ERROR ::: Unable to Access the git repo $GIT_REPO. Execution STOPPED"
+		exit 1
+	else
+		echo "INFO ::: git repo accessible. Continue . . . Provisioning . . . "
+	fi
+}
+
+
+
 read_TFVARS "$TFVARS_FILE"
 
 AWS_PROFILE=$(echo "$AWS_PROFILE" | tr -d '"')
 AWS_REGION=$(echo "$AWS_REGION" | tr -d '"')
 NMC_VOLUME_NAME=$(echo "$NMC_VOLUME_NAME" | tr -d '"')
+GITHUB_ORGANIZATION=$(echo "$GITHUB_ORGANIZATION" | tr -d '"')
 
 ######################## Check If ES Domain Available ###############################################
 ES_DOMAIN_NAME=$(aws secretsmanager get-secret-value --secret-id nct/nce/os/admin --region "${AWS_REGION}" | jq -r '.SecretString' | jq -r '.es_domain_name')
@@ -71,13 +98,17 @@ else
 fi
 if [ "$IS_ES" == "N" ]; then
     echo "ERROR ::: ElasticSearch Domain is Not Configured. Need to Provision ElasticSearch Domain Before, NAC Provisioning."
-    echo "INFO ::: Start ElasticSearch Domain Provisioning."
+    echo "INFO ::: Begin ElasticSearch Domain Provisioning."
+   ########## Download ElasticSearch Provisioning Code from GitHub ##########
+	### GITHUB_ORGANIZATION defaults to NasuniLabs
+	REPO_FOLDER="provision-es"
+	validate_github $GITHUB_ORGANIZATION $REPO_FOLDER 
     ########################### Git Clone  ###############################################################
-    echo "INFO ::: Start - Git Clone !!!"
+    echo "INFO ::: BEGIN - Git Clone !!!"
     ### Download Provisioning Code from GitHub
-    GIT_REPO="https://github.com/psahuNasuni/provision-es.git"
+    ## GIT_REPO="https://github.com/psahuNasuni/provision-es.git"
     GIT_REPO_NAME=$(echo ${GIT_REPO} | sed 's/.*\/\([^ ]*\/[^.]*\).*/\1/' | cut -d "/" -f 2)
-    echo "$GIT_REPO"
+    echo "INFO ::: $GIT_REPO"
     echo "INFO ::: GIT_REPO_NAME $GIT_REPO_NAME"
     pwd
     ls
@@ -88,34 +119,34 @@ if [ "$IS_ES" == "N" ]; then
     $COMMAND
     RESULT=$?
     if [ $RESULT -eq 0 ]; then
-        echo "INFO ::: GIT clone SUCCESS for repo ::: $GIT_REPO_NAME"
+        echo "INFO ::: FINISH ::: GIT clone SUCCESS for repo ::: $GIT_REPO_NAME"
     else
-        echo "INFO ::: GIT Clone  FAILED for repo ::: $GIT_REPO_NAME"
+        echo "INFO ::: FINISH ::: GIT Clone FAILED for repo ::: $GIT_REPO_NAME"
         exit 1
     fi
     cd "${GIT_REPO_NAME}"
     ##### RUN terraform init
-    echo "INFO ::: ES PROVISIONING ::: STARTED ::: Executing the Terraform scripts . . . . . . . . . . . ."
+    echo "INFO ::: ElasticSearch provisioning ::: BEGIN ::: Executing ::: Terraform init . . . . . . . . "
     COMMAND="terraform init"
     $COMMAND
     chmod 755 $(pwd)/*
     # exit 1
-    echo "INFO ::: ES PROVISIONING ::: Initialized Terraform Libraries/Dependencies"
+    echo "INFO ::: ElasticSearch provisioning ::: FINISH - Executing ::: Terraform init."
     ##### RUN terraform Apply
-    echo "INFO ::: ES PROVISIONING ::: STARTED ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
+    echo "INFO ::: ElasticSearch provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
     COMMAND="terraform apply -auto-approve"
     # COMMAND="terraform validate"
     $COMMAND
     if [ $? -eq 0 ]; then
-        echo "INFO ::: ES PROVISIONING ::: Terraform apply ::: COMPLETED . . . . . . . . . . . . . . . . . . ."
+        echo "INFO ::: ElasticSearch provisioning ::: FINISH ::: Executing ::: Terraform apply ::: SUCCESS"
     else
-        echo "ERROR ::: ES PROVISIONING ::: Terraform apply ::: FAILED."
+        echo "ERROR ::: ElasticSearch provisioning ::: FINISH ::: Executing ::: Terraform apply ::: FAILED "
         exit 1
     fi
     cd ..
 else
     echo "INFO ::: ElasticSearch Domain is Active . . . . . . . . . ."
-    echo "INFO ::: START ::: NAC Provisioning . . . . . . . . . . . ."
+    echo "INFO ::: BEGIN ::: NAC Provisioning . . . . . . . . . . . ."
 fi
 
 ##################################### END ES Domain ###################################################################
@@ -125,10 +156,14 @@ NMC_VOLUME_NAME=$(echo "${TFVARS_FILE}" | rev | cut -d'/' -f 1 | rev |cut -d'.' 
 cd "$NMC_VOLUME_NAME"
 pwd
 echo "INFO ::: current user :-"`whoami`
+########## Download NAC Provisioning Code from GitHub ##########
+### GITHUB_ORGANIZATION defaults to NasuniLabs
+REPO_FOLDER="nac-es"
+validate_github $GITHUB_ORGANIZATION $REPO_FOLDER 
 ########################### Git Clone : NAC Provisioning Repo ###############################################################
-echo "INFO ::: Start - Git Clone !!!"
+echo "INFO ::: BEGIN - Git Clone !!!"
 ### Download Provisioning Code from GitHub
-GIT_REPO="https://github.com/psahuNasuni/nac-es.git"
+## GIT_REPO="https://github.com/psahuNasuni/nac-es.git"
 GIT_REPO_NAME=$(echo ${GIT_REPO} | sed 's/.*\/\([^ ]*\/[^.]*\).*/\1/' | cut -d "/" -f 2)
 echo "INFO ::: GIT_REPO : $GIT_REPO"
 echo "INFO ::: GIT_REPO_NAME : $GIT_REPO_NAME"
@@ -141,10 +176,10 @@ COMMAND="git clone -b main ${GIT_REPO}"
 $COMMAND
 RESULT=$?
 if [ $RESULT -eq 0 ]; then
-    echo "INFO ::: GIT clone SUCCESS for repo ::: $GIT_REPO_NAME"
+    echo "INFO ::: FINISH ::: GIT clone SUCCESS for repo ::: $GIT_REPO_NAME"
 else
-    echo "INFO ::: GIT Clone  FAILED for repo ::: $GIT_REPO_NAME"
-    echo "INFO ::: Unable to Proceed with NAC Provisioning."
+    echo "ERROR ::: FINISH ::: GIT Clone FAILED for repo ::: $GIT_REPO_NAME"
+    echo "ERROR ::: Unable to Proceed with NAC Provisioning."
     exit 1
 fi
 pwd
@@ -157,20 +192,20 @@ cd "${GIT_REPO_NAME}"
 pwd
 ls
 ##### RUN terraform init
-echo "INFO ::: NAC PROVISIONING ::: Initializing Terraform Libraries/Dependencies STARTED . . . . . . . . . . . ."
+echo "INFO ::: NAC provisioning ::: BEGIN - Executing ::: Terraform init."
 COMMAND="terraform init"
 $COMMAND
 chmod 755 $(pwd)/*
 # exit 1
-echo "INFO ::: NAC PROVISIONING ::: Initializing Terraform Libraries/Dependencies ::: COMPLETED"
-echo "INFO ::: NAC PROVISIONING ::: STARTED ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
+echo "INFO ::: NAC provisioning ::: FINISH - Executing ::: Terraform init."
+echo "INFO ::: NAC provisioning ::: BEGIN - Executing ::: Terraform Apply . . . . . . . . . . . "
 COMMAND="terraform apply -var-file=${TFVARS_FILE} -auto-approve"
 # COMMAND="terraform validate"
 $COMMAND
 if [ $? -eq 0 ]; then
-        echo "INFO ::: NAC PROVISIONING ::: Terraform apply ::: COMPLETED . . . . . . . . . . . . . . . . . . ."
+        echo "INFO ::: NAC provisioning ::: FINISH ::: Terraform apply ::: SUCCESS"
     else
-        echo "INFO ::: NAC PROVISIONING ::: Terraform apply ::: FAILED."
+        echo "INFO ::: NAC provisioning ::: FINISH ::: Terraform apply ::: FAILED"
         exit 1
     fi
 ###### WAITING For Lambda to IndexData - 30Sec   (Only for Testing) "
@@ -183,19 +218,19 @@ echo "INFO ::: Internal secret for NAC Discovery is : $INTERNAL_SECRET"
 ### Get the NAC discovery lambda function name
 DISCOVERY_LAMBDA_NAME=$(aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name')
 
-DISCOVERY_LAMBDA_NAME_1=`aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name'`
+# DISCOVERY_LAMBDA_NAME_1=`aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name'`
 
-#aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name > lambda_function.txt
+# #aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name > lambda_function.txt
 
-echo `aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name'` > lambda_function.txt
+# echo `aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name'` > lambda_function.txt
 
-DISCOVERY_LAMBDA_NAME_2=`cat lambda_function.txt`
+# DISCOVERY_LAMBDA_NAME_2=`cat lambda_function.txt`
 
-aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name' > lambda_function_3.txt
+# aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name' > lambda_function_3.txt
 
-DISCOVERY_LAMBDA_NAME_3=`cat lambda_function_3.txt`
+# DISCOVERY_LAMBDA_NAME_3=`cat lambda_function_3.txt`
 
-echo "aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name'"
+# echo "aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name'"
 
 if [ -n "$DISCOVERY_LAMBDA_NAME" ]; then
     echo "INFO ::: Discovery lambda name :::not empty"
@@ -203,12 +238,12 @@ else
     echo "INFO ::: Discovery lambda name :::empty"
 fi
 
-echo "INFO ::: Discovery lambda name_3 ::: ${DISCOVERY_LAMBDA_NAME_3}"
-echo "INFO ::: Discovery lambda name_2 ::: ${DISCOVERY_LAMBDA_NAME_2}"
-echo "INFO ::: Discovery lambda name_1 ::: ${DISCOVERY_LAMBDA_NAME_1}"
+# echo "INFO ::: Discovery lambda name_3 ::: ${DISCOVERY_LAMBDA_NAME_3}"
+# echo "INFO ::: Discovery lambda name_2 ::: ${DISCOVERY_LAMBDA_NAME_2}"
+# echo "INFO ::: Discovery lambda name_1 ::: ${DISCOVERY_LAMBDA_NAME_1}"
 echo "INFO ::: Discovery lambda name ::: ${DISCOVERY_LAMBDA_NAME}"
-echo "INFO ::: Region ::: ${AWS_REGION}"
-echo "INFO ::: Profile Name ::: ${AWS_PROFILE}"
+# echo "INFO ::: Region ::: ${AWS_REGION}"
+# echo "INFO ::: Profile Name ::: ${AWS_PROFILE}"
 #exit 1
 i_cnt=0
 ### Check If Lambda Execution Completed ?

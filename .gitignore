@@ -8,5 +8,6 @@ nac-es
 *.tfvars
 *.json
 *copy.sh
-.gitignore
+# .gitignore
 prov_nacmanager
+*.pem
