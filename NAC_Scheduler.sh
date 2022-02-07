@@ -8,7 +8,8 @@
 DATE_WITH_TIME=$(date "+%Y%m%d-%H%M%S")
 START=$(date +%s)
 check_if_pem_file_exists() {
-FILE=$1
+# $(echo "$GITHUB_ORGANIZATION" | tr -d '"')
+FILE=$(echo "$1" | tr -d '"')
 if [ -f "$FILE" ]; then
 	echo "INFO ::: $FILE exists."
 else 
@@ -384,6 +385,7 @@ if [[ -n "$FOURTH_ARG" ]]; then
 		validate_kvp web_access_appliance_address "${WEB_ACCESS_APPLIANCE_ADDRESS}"
 		validate_kvp destination_bucket "${DESTINATION_BUCKET}"
 		validate_kvp pem_key_path "${PEM_KEY_PATH}"
+		# dos2unix $PEM_KEY_PATH
 		check_if_pem_file_exists $PEM_KEY_PATH
 		### nac_scheduler_name   - Get the value -- If its not null / "" then NAC_SCHEDULER_NAME = ${nac_scheduler_name}
 		create_JSON_from_Input_user_KVPfile $FOURTH_ARG >user_creds_"${NMC_VOLUME_NAME}"_"${ANALYTICS_SERVICE}".json
