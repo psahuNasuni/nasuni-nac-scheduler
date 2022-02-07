@@ -43,8 +43,8 @@ validate_github() {
 	GITHUB_ORGANIZATION=$1
 	REPO_FOLDER=$2
 	if [[ $GITHUB_ORGANIZATION == "" ]];then
-		GITHUB_ORGANIZATION="NasuniLabs"
-		echo "INFO ::: github_organization not provided as Secret Key-Value pair. So considering NasuliLabs as the default value !!!"
+		GITHUB_ORGANIZATION="nasuni-labs"
+		echo "INFO ::: github_organization not provided as Secret Key-Value pair. So considering nasuni-labs as the default value !!!"
 	fi 
 	GIT_REPO="https://github.com/$GITHUB_ORGANIZATION/$REPO_FOLDER.git"
 	echo "INFO ::: git repo $GIT_REPO"
