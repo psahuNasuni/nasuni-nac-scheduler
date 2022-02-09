@@ -68,7 +68,7 @@ NMC_VOLUME_NAME=$(echo "$NMC_VOLUME_NAME" | tr -d '"')
 GITHUB_ORGANIZATION=$(echo "$GITHUB_ORGANIZATION" | tr -d '"')
 
 ######################## Check If ES Domain Available ###############################################
-ES_DOMAIN_NAME=$(aws secretsmanager get-secret-value --secret-id nct/nce/os/admin --region "${AWS_REGION}" | jq -r '.SecretString' | jq -r '.es_domain_name')
+ES_DOMAIN_NAME=$(aws secretsmanager get-secret-value --secret-id nasuni-labs-os-admin --region "${AWS_REGION}" | jq -r '.SecretString' | jq -r '.es_domain_name')
 echo "INFO ::: ES_DOMAIN NAME : $ES_DOMAIN_NAME"
 # exit 1
 IS_ES="N"
@@ -218,29 +218,12 @@ echo "INFO ::: Internal secret for NAC Discovery is : $INTERNAL_SECRET"
 ### Get the NAC discovery lambda function name
 DISCOVERY_LAMBDA_NAME=$(aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name')
 
-# DISCOVERY_LAMBDA_NAME_1=`aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name'`
-
-# #aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name > lambda_function.txt
-
-# echo `aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name'` > lambda_function.txt
-
-# DISCOVERY_LAMBDA_NAME_2=`cat lambda_function.txt`
-
-# aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name' > lambda_function_3.txt
-
-# DISCOVERY_LAMBDA_NAME_3=`cat lambda_function_3.txt`
-
-# echo "aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name'"
-
 if [ -n "$DISCOVERY_LAMBDA_NAME" ]; then
     echo "INFO ::: Discovery lambda name :::not empty"
 else
     echo "INFO ::: Discovery lambda name :::empty"
 fi
 
-# echo "INFO ::: Discovery lambda name_3 ::: ${DISCOVERY_LAMBDA_NAME_3}"
-# echo "INFO ::: Discovery lambda name_2 ::: ${DISCOVERY_LAMBDA_NAME_2}"
-# echo "INFO ::: Discovery lambda name_1 ::: ${DISCOVERY_LAMBDA_NAME_1}"
 echo "INFO ::: Discovery lambda name ::: ${DISCOVERY_LAMBDA_NAME}"
 # echo "INFO ::: Region ::: ${AWS_REGION}"
 # echo "INFO ::: Profile Name ::: ${AWS_PROFILE}"
