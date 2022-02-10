@@ -208,11 +208,7 @@ if [ $? -eq 0 ]; then
         echo "INFO ::: NAC provisioning ::: FINISH ::: Terraform apply ::: FAILED"
         exit 1
     fi
-###### WAITING For Lambda to IndexData - 30Sec   (Only for Testing) "
-# echo "WAITING For Lambda to IndexData - 30Sec   (Only for Testing) "
-sleep 30
-#exit 0
-
+sleep 50
 INTERNAL_SECRET=$(head -n 1 nac_uniqui_id.txt  | tr -d "'")
 echo "INFO ::: Internal secret for NAC Discovery is : $INTERNAL_SECRET"
 ### Get the NAC discovery lambda function name
@@ -225,9 +221,6 @@ else
 fi
 
 echo "INFO ::: Discovery lambda name ::: ${DISCOVERY_LAMBDA_NAME}"
-# echo "INFO ::: Region ::: ${AWS_REGION}"
-# echo "INFO ::: Profile Name ::: ${AWS_PROFILE}"
-#exit 1
 i_cnt=0
 ### Check If Lambda Execution Completed ?
 LAST_UPDATE_STATUS="running"
@@ -256,7 +249,7 @@ if [ "$CLEANUP" != "Y" ]; then
             fi
             ((i_cnt++)) || true
 
-            echo " %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% $((i_cnt))"
+            echo " %%%%%%%%%%%%%%% $((i_cnt))"
             if [ $((i_cnt)) -eq 5 ]; then
                 if [[ -z "${LAST_UPDATE_STATUS}" ]]; then
                     echo "WARN ::: System TimeOut"
@@ -274,10 +267,7 @@ echo "INFO ::: CleanUp Flag: $CLEANUP"
     echo "INFO ::: Lambda execution COMPLETED."
     echo "INFO ::: STARTED ::: CLEANUP NAC STACK and dependent resources . . . . . . . . . . . . . . . . . . . . ."
     # ##### RUN terraform destroy to CLEANUP NAC STACK and dependent resources
-#  exit 1
-
     COMMAND="terraform destroy -var-file=${TFVARS_FILE} -auto-approve"
-    # COMMAND="terraform validate"
     $COMMAND
     echo "INFO ::: COMPLETED ::: CLEANUP NAC STACK and dependent resources ! ! ! ! "
 #    exit 0

@@ -8,7 +8,6 @@
 DATE_WITH_TIME=$(date "+%Y%m%d-%H%M%S")
 START=$(date +%s)
 check_if_pem_file_exists() {
-# $(echo "$GITHUB_ORGANIZATION" | tr -d '"')
 FILE=$(echo "$1" | tr -d '"')
 if [ -f "$FILE" ]; then
 	echo "INFO ::: $FILE exists."
@@ -39,7 +38,6 @@ validate_github() {
 }
 
 nmc_endpoint_accessibility() {
-	### nmc endpoint accessibility $NAC_SCHEDULER_NAME $PUB_IP_ADDR_NAC_SCHEDULER #$PEM
 	NAC_SCHEDULER_NAME="$1"
 	PUB_IP_ADDR_NAC_SCHEDULER="$2"
     NMC_API_ENDPOINT="$3"
@@ -58,9 +56,9 @@ nmc_endpoint_accessibility() {
 	echo "INFO ::: NMC_API_USERNAME ::: ${NMC_API_USERNAME}"
 	echo "INFO ::: NMC_API_PASSWORD ::: ${NMC_API_PASSWORD}" # 31-37
 
-	echo "INFO ::: PUB_IP_ADDR_NAC_SCHEDULER :"$PUB_IP_ADDR_NAC_SCHEDULER
+	echo "INFO ::: PUB_IP_ADDR_NAC_SCHEDULER : "$PUB_IP_ADDR_NAC_SCHEDULER
 	py_file_name=$(ls check_nmc_visiblity.py)
-	echo "INFO ::: Python File Name-"$py_file_name
+	echo "INFO ::: Executing Python code file : "$py_file_name
 	cat $py_file_name | ssh -i "$PEM" ubuntu@$PUB_IP_ADDR_NAC_SCHEDULER -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null python3 - $NMC_API_USERNAME $NMC_API_PASSWORD $NMC_API_ENDPOINT
 	if [ $? -eq 0 ]; then
 		echo "INFO ::: NAC Scheduler with IP : ${PUB_IP_ADDR_NAC_SCHEDULER}, have access to NMC API ${NMC_API_ENDPOINT} "
@@ -68,7 +66,7 @@ nmc_endpoint_accessibility() {
 		echo "ERROR ::: NAC Scheduler with IP : ${PUB_IP_ADDR_NAC_SCHEDULER}, Does NOT have access to NMC API ${NMC_API_ENDPOINT}. Please configure access to NMC "
 		exit 1
 	fi
-	echo "INFO ::: Completed nmc endpoint accessibility Check. !!!"
+	echo "INFO ::: Completed NMC endpoint accessibility Check. !!!"
 
 }
 parse_4thArgument_for_nac_scheduler_name() {
@@ -92,7 +90,7 @@ parse_4thArgument_for_nac_scheduler_name() {
 		NMC_API_ENDPOINT=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.nmc_api_endpoint')
 		PEM_KEY_PATH=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.pem_key_path')
 		GITHUB_ORGANIZATION=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.github_organization')
-		echo "INFO ::: nac_scheduler_name=$NAC_SCHEDULER_NAME :: nmc_api_username=$NMC_API_USERNAME :: nmc_api_password=$NMC_API_PASSWORD :: nmc_api_endpoint=$NMC_API_ENDPOINT :: pem_key_path=$PEM_KEY_PATH"
+		echo "INFO ::: github_organization=$GITHUB_ORGANIZATION :: nac_scheduler_name=$NAC_SCHEDULER_NAME :: nmc_api_username=$NMC_API_USERNAME :: nmc_api_password=$NMC_API_PASSWORD :: nmc_api_endpoint=$NMC_API_ENDPOINT :: pem_key_path=$PEM_KEY_PATH"
 	fi
 }
 
@@ -100,8 +98,8 @@ append_nac_keys_values_to_tfvars() {
 	inputFile="$1" ### Read InputFile
 	outFile="$2"
 	dos2unix $inputFile
-	echo "      inputFile ::: $inputFile"
-	echo "      outFile ::: $outFile"
+	# echo "INFO ::: Append nac key-value(s) to tfvars, inputFile ::: $inputFile"
+	# echo "INFO ::: Append nac key-value(s) to tfvars, outFile ::: $outFile"
 
 	while IFS="=" read -r key value; do
 		echo "$key ::: $value "
@@ -109,6 +107,7 @@ append_nac_keys_values_to_tfvars() {
 			echo "$key=$value" >>$outFile
 		fi
 	done <"$inputFile"
+	echo "INFO ::: Append NAC key-value(s) to tfvars, ::: $outFile"
 }
 
 check_if_secret_exists() {
@@ -117,10 +116,7 @@ check_if_secret_exists() {
 	AWS_REGION="$3"
 	# Verify the Secret Exists
 	if [[ -n $USER_SECRET ]]; then
-		# echo "USER SECRET:    $USER_SECRET"
-		#COMMAND="aws secretsmanager get-secret-value --secret-id ${USER_SECRET} --profile ${AWS_PROFILE} --region ${AWS_REGION}"
 		COMMAND=`aws secretsmanager get-secret-value --secret-id ${USER_SECRET} --profile ${AWS_PROFILE} --region ${AWS_REGION}`
-		# $COMMAND
 		RES=$?
 		if [[ $RES -eq 0 ]]; then
 			### echo "INFO ::: Secret ${USER_SECRET} Exists. $RES"
@@ -236,14 +232,11 @@ add_ip_to_sec_grp() {
 		echo $SECURITY_GROUP_ID
 		echo "INFO ::: Security group of NAC Scheduler Instance $NAC_SCHEDULER_NAME is $SECURITY_GROUP_ID"
 	fi
-	#If OS name is windows
 	status=$(aws ec2 authorize-security-group-ingress --group-id ${SECURITY_GROUP_ID} --profile "${AWS_PROFILE}" --protocol tcp --port 22 --cidr ${NEW_CIDR} 2>/dev/null)
-	# aws ec2 authorize-security-group-ingress --group-name sg-a3204ac8 --protocol tcp --port 22 --cidr 103.168.202.24/24
 	if [ $? -eq 0 ]; then
 		echo "INFO ::: Local Computer IP $NEW_CIDR updated to inbound rule of Security Group $SECURITY_GROUP_ID"
 	else
 		echo "INFO ::: IP $NEW_CIDR already available in inbound rule of Security Group $SECURITY_GROUP_ID"
-		# echo "FAIL"
 	fi
 
 }
@@ -266,10 +259,8 @@ validate_aws_profile() {
 		AWS_REGION=$(aws configure get region --profile ${AWS_PROFILE})
 	fi
 
-	echo "INFO ::: AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID"
-	echo "INFO ::: AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY"
-	echo "INFO ::: AWS_REGION=$AWS_REGION"
-	echo "INFO ::: NMC_VOLUME_NAME=$NMC_VOLUME_NAME"
+	# echo "INFO ::: AWS_REGION=$AWS_REGION"
+	# echo "INFO ::: NMC_VOLUME_NAME=$NMC_VOLUME_NAME"
 	echo "INFO ::: AWS profile Validation SUCCESS !!!"
 }
 ########################## Create CRON ############################################################
