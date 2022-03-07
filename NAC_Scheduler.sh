@@ -12,7 +12,7 @@ check_if_vpc_exists(){
 INPUT_VPC_IS="$1"
 
 # VPCS=`aws ec2 describe-vpcs | jq -r '.Vpcs[].VpcId'`
-VPC_CHECK=`aws ec2 describe-vpcs --filters "Name=vpc-id,Values=$INPUT_VPC_IS" --region ${AWS_REGION} | jq -r '.Vpcs[].VpcId'`
+VPC_CHECK=`aws ec2 describe-vpcs --filters "Name=vpc-id,Values=$INPUT_VPC_IS" --region ${AWS_REGION} --profile "${AWS_PROFILE}" | jq -r '.Vpcs[].VpcId'`
 echo "%%%%%%% $INPUT_VPC_IS %%%%%%%%%%%"$VPC_CHECK
 
 if [ "$VPC_CHECK" == "null" ] || [ "$VPC_CHECK" == "" ]; then
@@ -21,8 +21,6 @@ if [ "$VPC_CHECK" == "null" ] || [ "$VPC_CHECK" == "" ]; then
 else
 	echo "INFO ::: VPC $INPUT_VPC_IS is Valid" 
 fi
-# exit 88888
-
 }
 
 check_if_pem_file_exists() {
@@ -39,10 +37,12 @@ fi
 validate_github() {
 	GITHUB_ORGANIZATION=$1
 	REPO_FOLDER=$2
-	if [[ $GITHUB_ORGANIZATION == "" ]];then
+	if [ "$GITHUB_ORGANIZATION" != "" ]; then
+		echo "INFO ::: Value of github_organization is $GITHUB_ORGANIZATION"	
+	else 
 		GITHUB_ORGANIZATION="nasuni-labs"
-		echo "INFO ::: github_organization not provided as Secret Key-Value pair. So considering nasuni-labs as the default value !!!"
-	fi 
+		echo "INFO ::: Value of github_organization is set to default as $GITHUB_ORGANIZATION"	
+	fi
 	GIT_REPO="https://github.com/$GITHUB_ORGANIZATION/$REPO_FOLDER.git"
 	echo "INFO ::: git repo $GIT_REPO"
 	git ls-remote $GIT_REPO -q
@@ -109,8 +109,15 @@ parse_4thArgument_for_nac_scheduler_name() {
 		NMC_API_ENDPOINT=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.nmc_api_endpoint')
 		PEM_KEY_PATH=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.pem_key_path')
 		GITHUB_ORGANIZATION=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.github_organization')
+		echo "KKKKKKKKKKKKKKKKKKKKKKK $GITHUB_ORGANIZATION"
 		USER_VPC_ID=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.user_vpc_id')
 		echo "INFO ::: github_organization=$GITHUB_ORGANIZATION :: nac_scheduler_name=$NAC_SCHEDULER_NAME :: nmc_api_username=$NMC_API_USERNAME :: nmc_api_password=$NMC_API_PASSWORD :: nmc_api_endpoint=$NMC_API_ENDPOINT :: pem_key_path=$PEM_KEY_PATH"
+	fi
+	if [ "$GITHUB_ORGANIZATION" == "" ] || [ "$GITHUB_ORGANIZATION" == "null" ]; then
+		GITHUB_ORGANIZATION="nasuni-labs"
+		echo "INFO ::: Value of github_organization is set to default as $GITHUB_ORGANIZATION"	
+	else 
+		echo "INFO ::: Value of github_organization is $GITHUB_ORGANIZATION"	
 	fi
 }
 
@@ -213,10 +220,13 @@ parse_textfile_for_user_secret_keys_values() {
 		"user_vpc_id") USER_VPC_ID="$value" ;;
 		esac
 	done <"$file"
-	if [ $GITHUB_ORGANIZATION != "" ]; then
+	if [ "$GITHUB_ORGANIZATION" != "" ]; then
 		echo "INFO ::: Value of github_organization is $GITHUB_ORGANIZATION"	
+	else 
+		GITHUB_ORGANIZATION="nasuni-labs"
+		echo "INFO ::: Value of github_organization is set to default as $GITHUB_ORGANIZATION"	
 	fi
-	if [ $USER_VPC_ID != "" ]; then
+	if [ "$USER_VPC_ID" != "" ]; then
 		echo "INFO ::: Value of user_vpc_id is $USER_VPC_ID"	
 	fi
 	echo "INFO ::: Validating the user data file ${file} and the provided values"
@@ -482,7 +492,6 @@ if [ "$USER_VPC_ID" == "" ] || [ "$USER_VPC_ID" == "null" ]; then
 else
 	echo "INFO ::: user_vpc_id provided in the user Secret, VPC_ID=$USER_VPC_ID"  
 	check_if_vpc_exists $USER_VPC_ID
-# exit 888
 fi
 echo "INFO ::: nac_scheduler_name = $NAC_SCHEDULER_NAME "
 if [ "$NAC_SCHEDULER_NAME" != "" ]; then
@@ -505,8 +514,8 @@ else
 	## "NAC Scheduler is not present. Creating new EC2 machine."
 	echo "INFO ::: NAC Scheduler Instance is not present. Creating new EC2 machine."
 	########## Download NAC Scheduler Instance Provisioning Code from GitHub ##########
-	### GITHUB_ORGANIZATION defaults to NasuniLabs
-	REPO_FOLDER="prov_nacmanager"
+	### GITHUB_ORGANIZATION defaults to nasuni-labs
+	REPO_FOLDER="nasuni-analyticsconnector-manager"
 	validate_github $GITHUB_ORGANIZATION $REPO_FOLDER 
 	GIT_REPO_NAME=$(echo ${GIT_REPO} | sed 's/.*\/\([^ ]*\/[^.]*\).*/\1/' | cut -d "/" -f 2)
 	echo "INFO ::: Begin - Git Clone to ${GIT_REPO}"
@@ -543,7 +552,6 @@ else
 	### Copy the Pem Key from provided path to current folder
 	cp $PEM_KEY_PATH ./
 	chmod 400 $PEM
-	# ls -alt
 	echo "aws_profile="\"$AWS_PROFILE\" >>$TFVARS_NAC_SCHEDULER
 	echo "region="\"$AWS_REGION\" >>$TFVARS_NAC_SCHEDULER
 	if [[ "$NAC_SCHEDULER_NAME" != "" ]]; then
@@ -557,7 +565,6 @@ else
 		echo "user_vpc_id="\"$USER_VPC_ID\" >>$TFVARS_NAC_SCHEDULER
 	fi
 	dos2unix $TFVARS_NAC_SCHEDULER
-# exit 888
 	COMMAND="terraform apply -var-file=$TFVARS_NAC_SCHEDULER -auto-approve"
 	$COMMAND
 	if [ $? -eq 0 ]; then

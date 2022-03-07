@@ -100,14 +100,13 @@ if [ "$IS_ES" == "N" ]; then
     echo "ERROR ::: ElasticSearch Domain is Not Configured. Need to Provision ElasticSearch Domain Before, NAC Provisioning."
     echo "INFO ::: Begin ElasticSearch Domain Provisioning."
    ########## Download ElasticSearch Provisioning Code from GitHub ##########
-	### GITHUB_ORGANIZATION defaults to NasuniLabs
-	REPO_FOLDER="provision-es"
+	### GITHUB_ORGANIZATION defaults to nasuni-labs
+	REPO_FOLDER="nasuni-awsopensearch"
 	validate_github $GITHUB_ORGANIZATION $REPO_FOLDER 
     ########################### Git Clone  ###############################################################
     echo "INFO ::: BEGIN - Git Clone !!!"
     ### Download Provisioning Code from GitHub
-    ## GIT_REPO="https://github.com/psahuNasuni/provision-es.git"
-    GIT_REPO_NAME=$(echo ${GIT_REPO} | sed 's/.*\/\([^ ]*\/[^.]*\).*/\1/' | cut -d "/" -f 2)
+    GIT_REPO_NAME=$(echo ${GIT_REPO} | sed 's/.*\/\([^ ]*\/[^.]*\).*/nasuni-\1/' | cut -d "/" -f 2)
     echo "INFO ::: $GIT_REPO"
     echo "INFO ::: GIT_REPO_NAME $GIT_REPO_NAME"
     pwd
@@ -157,13 +156,12 @@ cd "$NMC_VOLUME_NAME"
 pwd
 echo "INFO ::: current user :-"`whoami`
 ########## Download NAC Provisioning Code from GitHub ##########
-### GITHUB_ORGANIZATION defaults to NasuniLabs
-REPO_FOLDER="nac-es"
+### GITHUB_ORGANIZATION defaults to nasuni-labs
+REPO_FOLDER="nasuni-analyticsconnector-opensearch"
 validate_github $GITHUB_ORGANIZATION $REPO_FOLDER 
 ########################### Git Clone : NAC Provisioning Repo ###############################################################
 echo "INFO ::: BEGIN - Git Clone !!!"
 ### Download Provisioning Code from GitHub
-## GIT_REPO="https://github.com/psahuNasuni/nac-es.git"
 GIT_REPO_NAME=$(echo ${GIT_REPO} | sed 's/.*\/\([^ ]*\/[^.]*\).*/\1/' | cut -d "/" -f 2)
 echo "INFO ::: GIT_REPO : $GIT_REPO"
 echo "INFO ::: GIT_REPO_NAME : $GIT_REPO_NAME"
@@ -209,6 +207,7 @@ if [ $? -eq 0 ]; then
         exit 1
     fi
 sleep 50
+
 INTERNAL_SECRET=$(head -n 1 nac_uniqui_id.txt  | tr -d "'")
 echo "INFO ::: Internal secret for NAC Discovery is : $INTERNAL_SECRET"
 ### Get the NAC discovery lambda function name
@@ -249,7 +248,7 @@ if [ "$CLEANUP" != "Y" ]; then
             fi
             ((i_cnt++)) || true
 
-            echo " %%%%%%%%%%%%%%% $((i_cnt))"
+            echo " %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% $((i_cnt))"
             if [ $((i_cnt)) -eq 5 ]; then
                 if [[ -z "${LAST_UPDATE_STATUS}" ]]; then
                     echo "WARN ::: System TimeOut"
@@ -267,6 +266,7 @@ echo "INFO ::: CleanUp Flag: $CLEANUP"
     echo "INFO ::: Lambda execution COMPLETED."
     echo "INFO ::: STARTED ::: CLEANUP NAC STACK and dependent resources . . . . . . . . . . . . . . . . . . . . ."
     # ##### RUN terraform destroy to CLEANUP NAC STACK and dependent resources
+
     COMMAND="terraform destroy -var-file=${TFVARS_FILE} -auto-approve"
     $COMMAND
     echo "INFO ::: COMPLETED ::: CLEANUP NAC STACK and dependent resources ! ! ! ! "
