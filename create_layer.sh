@@ -3,14 +3,15 @@
 #./creater_layer.sh elasticsearch my-layer
 path="app"
 #package="${1}"
-layername="${1}"
-echo $layername
-existing_lambda_layer=$(aws lambda list-layers --compatible-runtime python3.8 --profile nasuni)
-ext_lambda_layer=$(echo $existing_lambda_layer | jq -r '.Layers[] | select(.LayerName == '\"$layername\"') | {LayerName}')
-echo ext_lambda_layer $ext_lambda_layer
+LAYER_NAME="$1"
+AWS_PROFILE="$2"
+echo "INFO ::: LAYER_NAME ::: $LAYER_NAME"
+EXISTING_LAMBDA_LAYER=$(aws lambda list-layers --compatible-runtime python3.8 --profile $AWS_PROFILE)
+EXT_LAMBDA_LAYER=$(echo $EXISTING_LAMBDA_LAYER | jq -r '.Layers[] | select(.LayerName == '\"$LAYER_NAME\"') | {LayerName}')
+echo "ext_lambda_layer $EXT_LAMBDA_LAYER"
 
 
-if [ "$ext_lambda_layer" = "" ] ; then
+if [ "$EXT_LAMBDA_LAYER" = "" ] ; then
   mkdir -p $path
   for i in opensearch-py requests requests_aws4auth python-pptx PyMuPDF python-docx pandas chardet openpyxl xlrd
   do
@@ -20,16 +21,16 @@ if [ "$ext_lambda_layer" = "" ] ; then
   done
   cd $path && zip -r ../lambdalayer.zip .
 
-  aws s3 mb s3://nac-discovery-lambda-layer --profile nasuni
+  aws s3 mb s3://nac-discovery-lambda-layer --profile $AWS_PROFILE
   if [ $? -eq 0 ]; then
      echo OK
   else
      echo bucket is already exist
   fi
   cd 
-  aws s3 cp lambdalayer.zip s3://nac-discovery-lambda-layer --profile nasuni
+  aws s3 cp lambdalayer.zip s3://nac-discovery-lambda-layer --profile $AWS_PROFILE
 
-  aws lambda publish-layer-version --layer-name "${layername}" --description "Lambda layer for including all pkgs for NAC_Discovery"     --license-info "MIT" --content S3Bucket=nac-discovery-lambda-layer,S3Key=lambdalayer.zip  --compatible-runtimes python3.8 python3.9 --profile nasuni
+  aws lambda publish-layer-version --layer-name "${LAYER_NAME}" --description "Lambda layer for including all pkgs for NAC_Discovery"     --license-info "MIT" --content S3Bucket=nac-discovery-lambda-layer,S3Key=lambdalayer.zip  --compatible-runtimes python3.8 python3.9 --profile $AWS_PROFILE
 else
-  echo "The layer ${layername} is already present"
+  echo "The layer ${LAYER_NAME} is already present"
 fi

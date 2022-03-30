@@ -339,7 +339,7 @@ Schedule_CRON_JOB() {
 	elif [ $RES -eq 0 ]; then
 		echo "INFO :::create_layer.sh Uploaded Successfully to NAC_Scheduer Instance."
 	fi
-	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sh create_layer.sh nasuni-labs-os-lambda-layer" #SSA
+	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sh create_layer.sh nasuni-labs-os-lambda-layer $AWS_PROFILE" #SSA
 	RES="$?"
 	if [ $RES -ne 0 ]; then
 		echo "ERROR ::: Failed to execute create_layer.sh to NAC_Scheduer Instance."
