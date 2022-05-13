@@ -359,15 +359,17 @@ Schedule_CRON_JOB() {
 	TFVARS_FILE_NAME="${CRON_DIR_NAME}.tfvars"
 	rm -rf "$TFVARS_FILE_NAME"
 	arn=$(aws sts get-caller-identity --profile nasuni| jq -r '.Arn' )
-	aws_current_user=$(cut -d'/' -f2 <<<"$arn")
+	AWS_CURRENT_USER=$(cut -d'/' -f2 <<<"$arn")
+	echo "INFO ::: $AWS_CURRENT_USER which will be added for lambda layer::: "
 	NEW_NAC_IP=$(echo $NAC_SCHEDULER_IP_ADDR | tr '.' '-')
+	echo "INFO ::: $NEW_NAC_IP which will be added for lambda layer::: "
 	echo "aws_profile="\"$AWS_PROFILE\" >>$TFVARS_FILE_NAME
 	echo "region="\"$AWS_REGION\" >>$TFVARS_FILE_NAME
 	echo "volume_name="\"$NMC_VOLUME_NAME\" >>$TFVARS_FILE_NAME
 	echo "user_secret="\"$USER_SECRET\" >>$TFVARS_FILE_NAME
 	echo "github_organization="\"$GITHUB_ORGANIZATION\" >>$TFVARS_FILE_NAME
-	echo "nac_scheduler_ip_addr="\"$NEW_NAC_IP\" >>$TFVARS_FILE_NAME #SSA
-	echo "aws_current_user="\"$aws_current_user\" >>$TFVARS_FILE_NAME #SSA find aws user command
+	echo "nac_scheduler_ip_addr="\"$NEW_NAC_IP\" >>$TFVARS_FILE_NAME 
+	echo "aws_current_user="\"$AWS_CURRENT_USER\" >>$TFVARS_FILE_NAME ### Append Current aws user
 	if [ $ARG_COUNT -eq 5 ]; then
 		echo "INFO ::: $ARG_COUNT th Argument is supplied as ::: $NAC_INPUT_KVP"
 		append_nac_keys_values_to_tfvars $NAC_INPUT_KVP $TFVARS_FILE_NAME
@@ -390,7 +392,7 @@ Schedule_CRON_JOB() {
 	fi
 	#pass pub_ip to fun SSA
 	#IAM_USER to be defined. et user 
-	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sh create_layer.sh nasuni-labs-os-lambda-layer $AWS_PROFILE $NAC_SCHEDULER_IP_ADDR $aws_current_user" #SSA
+	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sh create_layer.sh nasuni-labs-os-lambda-layer $AWS_PROFILE $NAC_SCHEDULER_IP_ADDR $AWS_CURRENT_USER" #SSA
 	RES="$?"
 	if [ $RES -ne 0 ]; then
 		echo "ERROR ::: Failed to execute create_layer.sh to NAC_Scheduer Instance."
