@@ -559,7 +559,7 @@ if [ "$NAC_SCHEDULER_NAME" != "" ]; then
 	else
 		### Getting Private_IP of NAC Scheduler
 		echo "INFO ::: Private_IP of NAC Scheduler is: $NAC_SCHEDULER_IP_ADDR"
-		NAC_SCHEDULER_IP_ADDR=`aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PrivateIp:PrivateIpAddress}" --filters "Name=tag:Name,Values='DM'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" --profile ${AWS_PROFILE} | grep -e "PrivateIp" | cut -d":" -f 2 | tr -d '"' | tr -d ' '`
+		NAC_SCHEDULER_IP_ADDR=`aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PrivateIp:PrivateIpAddress}" --filters "Name=tag:Name,Values='$NAC_SCHEDULER_NAME'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" --profile ${AWS_PROFILE} | grep -e "PrivateIp" | cut -d":" -f 2 | tr -d '"' | tr -d ' '`
 	fi
 else
 	NAC_SCHEDULER_IP_ADDR=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACScheduler'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" --profile ${AWS_PROFILE}| grep -e "PublicIP" | cut -d":" -f 2 | tr -d '"' | tr -d ' ')
