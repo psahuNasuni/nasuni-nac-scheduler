@@ -364,6 +364,8 @@ Schedule_CRON_JOB() {
 	echo "nac_scheduler_ip_addr="\"$NEW_NAC_IP\" >>$TFVARS_FILE_NAME 
 	echo "aws_current_user="\"$AWS_CURRENT_USER\" >>$TFVARS_FILE_NAME ### Append Current aws user
 	echo "user_vpc_id="\"$USER_VPC_ID\" >>$TFVARS_FILE_NAME
+	echo "user_subnet_id="\"$USER_SUBNET_ID\" >>$TFVARS_FILE_NAME
+	echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$TFVARS_FILE_NAME
 
 	if [ $ARG_COUNT -eq 5 ]; then
 		echo "INFO ::: $ARG_COUNT th Argument is supplied as ::: $NAC_INPUT_KVP"
@@ -572,7 +574,7 @@ if [ "$NAC_SCHEDULER_IP_ADDR" != "" ]; then
 	### Call this function to add Local public IP to Security group of NAC_SCHEDULER IP
 	add_ip_to_sec_grp $NAC_SCHEDULER_IP_ADDR $NAC_SCHEDULER_NAME
 	### nmc endpoint accessibility $NAC_SCHEDULER_NAME $NAC_SCHEDULER_IP_ADDR
-	nmc_endpoint_accessibility  $NAC_SCHEDULER_NAME $NAC_SCHEDULER_IP_ADDR $NMC_API_ENDPOINT $NMC_API_USERNAME $NMC_API_PASSWORD #458
+	#88888 nmc_endpoint_accessibility  $NAC_SCHEDULER_NAME $NAC_SCHEDULER_IP_ADDR $NMC_API_ENDPOINT $NMC_API_USERNAME $NMC_API_PASSWORD #458
 	Schedule_CRON_JOB $NAC_SCHEDULER_IP_ADDR
 
 ###################### NAC Scheduler EC2 Instance is NOT Available ##############################
@@ -687,7 +689,7 @@ else
 	## Call this function to add Local public IP to Security group of NAC_SCHEDULER IP
 	add_ip_to_sec_grp ${NAC_SCHEDULER_IP_ADDR}
 	## nmc endpoint accessibility $NAC_SCHEDULER_NAME $NAC_SCHEDULER_IP_ADDR
-	nmc_endpoint_accessibility  $NAC_SCHEDULER_NAME ${NAC_SCHEDULER_IP_ADDR} $NMC_API_ENDPOINT $NMC_API_USERNAME $NMC_API_PASSWORD #458
+	#88888 nmc_endpoint_accessibility  $NAC_SCHEDULER_NAME ${NAC_SCHEDULER_IP_ADDR} $NMC_API_ENDPOINT $NMC_API_USERNAME $NMC_API_PASSWORD #458
 	Schedule_CRON_JOB $NAC_SCHEDULER_IP_ADDR
 	## Setup_Search_Lambda
 	## Setup_Search_UI
