@@ -365,8 +365,9 @@ Schedule_CRON_JOB() {
 	echo "aws_current_user="\"$AWS_CURRENT_USER\" >>$TFVARS_FILE_NAME ### Append Current aws user
 	echo "user_vpc_id="\"$USER_VPC_ID\" >>$TFVARS_FILE_NAME
 	echo "user_subnet_id="\"$USER_SUBNET_ID\" >>$TFVARS_FILE_NAME
-	echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$TFVARS_FILE_NAME
-
+	if [[ "$USE_PRIVATE_IP" == "Y" ]]; then
+		echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$TFVARS_FILE_NAME
+	fi
 	if [ $ARG_COUNT -eq 5 ]; then
 		echo "INFO ::: $ARG_COUNT th Argument is supplied as ::: $NAC_INPUT_KVP"
 		append_nac_keys_values_to_tfvars $NAC_INPUT_KVP $TFVARS_FILE_NAME
