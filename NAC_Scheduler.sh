@@ -199,7 +199,7 @@ validate_kvp() {
 	else
 		echo "INFO ::: Value of ${key} is ${val}"
 	fi
-}
+} 
 validate_secret_values() {
 	SECRET_NAME=$1
 	SECRET_KEY=$2
@@ -363,6 +363,8 @@ Schedule_CRON_JOB() {
 	echo "github_organization="\"$GITHUB_ORGANIZATION\" >>$TFVARS_FILE_NAME
 	echo "nac_scheduler_ip_addr="\"$NEW_NAC_IP\" >>$TFVARS_FILE_NAME 
 	echo "aws_current_user="\"$AWS_CURRENT_USER\" >>$TFVARS_FILE_NAME ### Append Current aws user
+	echo "user_vpc_id="\"$USER_VPC_ID\" >>$TFVARS_FILE_NAME
+
 	if [ $ARG_COUNT -eq 5 ]; then
 		echo "INFO ::: $ARG_COUNT th Argument is supplied as ::: $NAC_INPUT_KVP"
 		append_nac_keys_values_to_tfvars $NAC_INPUT_KVP $TFVARS_FILE_NAME

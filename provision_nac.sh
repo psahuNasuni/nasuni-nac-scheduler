@@ -34,6 +34,9 @@ read_TFVARS() {
       "region") AWS_REGION="$value" ;;
       "volume_name") NMC_VOLUME_NAME="$value" ;;
       "github_organization") GITHUB_ORGANIZATION="$value" ;;
+      "user_vpc_id") USER_VPC_ID="$value" ;;
+      "user_subnet_id") USER_SUBNET_ID="$value" ;;
+      "use_private_ip") USE_PRIVATE_IP="$value" ;;
     esac
   done < "$file"
 }
@@ -128,6 +131,23 @@ if [ "$IS_ES" == "N" ]; then
     echo "INFO ::: ElasticSearch provisioning ::: BEGIN ::: Executing ::: Terraform init . . . . . . . . "
     COMMAND="terraform init"
     $COMMAND
+
+    ##### RUN terraform Apply
+    echo "INFO ::: ElasticSearch provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
+    #### Create TFVARS FILE FOR OS Provisioning
+    if [[ "$USE_PRIVATE_IP" != "" ]]; then
+
+        OS_TFVARS="Os.tfvars"
+        echo "user_subnet_id="\"$USER_SUBNET_ID\" >>$OS_TFVARS
+        echo "user_vpc_id="\"$USER_VPC_ID\" >>$OS_TFVARS
+        echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$OS_TFVARS
+
+        COMMAND="terraform apply -var-file=$OS_TFVARS -auto-approve"
+    else
+        COMMAND="terraform apply -auto-approve"
+    fi
+    # COMMAND="terraform validate"
+
     chmod 755 $(pwd)/*
     # exit 1
     echo "INFO ::: ElasticSearch provisioning ::: FINISH - Executing ::: Terraform init."
