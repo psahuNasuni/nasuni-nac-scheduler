@@ -92,7 +92,7 @@ GITHUB_ORGANIZATION=$(echo "$GITHUB_ORGANIZATION" | tr -d '"')
 
 ########################Create OS Admin Secret, If its not available ###############
 
-OS_ADMIIN_SECRET="nasuni-labs-os-admin"
+OS_ADMIIN_SECRET="nasuni-labs-os-admin-2"
 ### Verify the Secret Exists
 OS_ADMIIN_SECRET_EXISTS=$(check_if_secret_exists $OS_ADMIIN_SECRET $AWS_PROFILE $AWS_REGION)
 echo "INFO ::: OS_ADMIIN_SECRET_EXISTS ::: $OS_ADMIIN_SECRET_EXISTS "
