@@ -1,5 +1,6 @@
 #!/bin/bash
-
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 #############################################################################################
 #### This Script Targets NAC Deployment from any Linux Box 
 #### Prequisites: 
@@ -47,8 +48,12 @@ check_if_secret_exists() {
 	AWS_PROFILE="$2"
 	AWS_REGION="$3"
 	# Verify the Secret Exists
+	echo USER_SECRET $USER_SECRET
+	echo AWS_PROFILE $AWS_PROFILE
+	echo AWS_REGION $AWS_REGION
 	if [[ -n $USER_SECRET ]]; then
-		COMMAND=`aws secretsmanager get-secret-value --secret-id ${USER_SECRET} --profile ${AWS_PROFILE} --region ${AWS_REGION}`
+		COMMAND=$(aws secretsmanager get-secret-value --secret-id ${USER_SECRET} --profile ${AWS_PROFILE} --region ${AWS_REGION})
+		#$COMMAND ###SSA
 		RES=$?
 		if [[ $RES -eq 0 ]]; then
 			### echo "INFO ::: Secret ${USER_SECRET} Exists. $RES"
@@ -96,6 +101,7 @@ OS_ADMIIN_SECRET="nasuni-labs-os-admin"
 ### Verify the Secret Exists
 OS_ADMIIN_SECRET_EXISTS=$(check_if_secret_exists $OS_ADMIIN_SECRET $AWS_PROFILE $AWS_REGION)
 echo "INFO ::: OS_ADMIIN_SECRET_EXISTS ::: $OS_ADMIIN_SECRET_EXISTS "
+#exit 1
 if [ "$OS_ADMIIN_SECRET_EXISTS" == "N" ]; then
     ## Fourth argument is a File && the User Secret Doesn't exist ==> User wants to Create a new Secret
     ### Create Secret
@@ -142,6 +148,7 @@ else
         IS_ES="N"
     fi
 fi
+
 if [ "$IS_ES" == "N" ]; then
     echo "ERROR ::: ElasticSearch Domain is Not Configured. Need to Provision ElasticSearch Domain Before, NAC Provisioning."
     echo "INFO ::: Begin ElasticSearch Domain Provisioning."
@@ -178,14 +185,23 @@ if [ "$IS_ES" == "N" ]; then
     ##### RUN terraform Apply
     echo "INFO ::: ElasticSearch provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
     #### Create TFVARS FILE FOR OS Provisioning
-    if [[ "$USE_PRIVATE_IP" == "Y" ]]; then
-
+    echo USE_PRIVATE_IP $USE_PRIVATE_IP
+    USE_PRIVATE_IP=$(echo $USE_PRIVATE_IP|tr -d '"')
+    USER_SUBNET_ID=$(echo $USER_SUBNET_ID|tr -d '"')
+    USER_VPC_ID=$(echo $USER_VPC_ID|tr -d '"')
+    AWS_REGION=$(echo $AWS_REGION|tr -d '"')
+    echo USE_PRIVATE_IP $USE_PRIVATE_IP
+    #exit 1
+    if [[ "$USE_PRIVATE_IP" = Y ]]; then
+	echo "Inside Use private ip block"
         OS_TFVARS="Os.tfvars"
-        echo "user_subnet_id="\"$USER_SUBNET_ID\" >>$OS_TFVARS
+        echo "user_subnet_id="\"$USER_SUBNET_ID\" >$OS_TFVARS
         echo "user_vpc_id="\"$USER_VPC_ID\" >>$OS_TFVARS
-        echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$OS_TFVARS
-
+        echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$OS_TFVARSi
+	echo "es_region="\"$AWS_REGION\" >>$OS_TFVARS
+	echo "" >>$OS_TFVARS
         COMMAND="terraform apply -var-file=$OS_TFVARS -auto-approve"
+	$COMMAND
     else
         chmod 755 $(pwd)/*
         # exit 1
