@@ -12,8 +12,7 @@ echo "INFO ::: AWS_PROFILE ::: $AWS_PROFILE"
 echo "INFO ::: NAC_IP ::: $NAC_IP"
 echo "INFO ::: AWS_CURRENT_USER ::: $AWS_CURRENT_USER"
 NEW_NAC_IP=$(echo $NAC_IP | tr '.' '-')
-LAMBDA_LAYER_NAME=$(echo $LAYER_NAME-$NEW_NAC_IP-$AWS_CURRENT_USER)
-
+LAMBDA_LAYER_NAME=$(echo $LAYER_NAME-$LAMBDA_LAYER_SUFFIX)
 EXISTING_LAMBDA_LAYER=$(aws lambda list-layers --compatible-runtime python3.8 --profile $AWS_PROFILE)
 echo "INFO ::: EXISTING_LAMBDA_LAYER ::: $EXISTING_LAMBDA_LAYER"
 EXT_LAMBDA_LAYER=$(echo $EXISTING_LAMBDA_LAYER | jq -r '.Layers[] | select(.LayerName == '\"$LAMBDA_LAYER_NAME\"') | {LayerName}')
