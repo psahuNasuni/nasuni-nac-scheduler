@@ -197,7 +197,7 @@ if [ "$IS_ES" == "N" ]; then
         OS_TFVARS="Os.tfvars"
         echo "user_subnet_id="\"$USER_SUBNET_ID\" >$OS_TFVARS
         echo "user_vpc_id="\"$USER_VPC_ID\" >>$OS_TFVARS
-        echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$OS_TFVARSi
+        echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$OS_TFVARS
 	echo "es_region="\"$AWS_REGION\" >>$OS_TFVARS
 	echo "" >>$OS_TFVARS
         COMMAND="terraform apply -var-file=$OS_TFVARS -auto-approve"
