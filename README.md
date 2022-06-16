@@ -21,7 +21,7 @@ There are three AWS services that the NAC Scheduler currently supports: [AWS Ope
 
 To install the NAC Scheduler, you need the following:
 
-1. The [command line AWS tools], [jq], [wget], [Terraform], [Python], [curl], [dos2unix] and [git] installed on a computer that is able to connect to the region in which you choose to deploy the NAC.
+1. The [command line AWS tools], [jq], wget, Terraform, Python, curl, dos2unix and [git] installed on a computer that is able to connect to the region in which you choose to deploy the NAC.
 2. An AWS account with API access stored in a profile named ‘nasuni’ on the computer on which the AWS tools are installed. In the profile, a region must be identified. To install that profile use: 
 ```sh
 aws configure --profile nasuni
