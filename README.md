@@ -85,7 +85,7 @@ When the script has completed, you will see a URL.
     |pem_key_path|/home/johndoe/.ssh/mypemkey.pem|A pem key which is also stored as one of the [key pairs] in your AWS account. (NB: case matters. Make sure that the pem key in the pem_key_path has the same capitalization as the corresponding key in AWS)|
     |nac_scheduler_name|My_NAC_Scheduler|(Optional) The name of the NAC Scheduler. If this variable is not set, the name defaults to "NAC_Scheduler"|
     |github_organization|nasuni-labs|(Optional) If you have forked this repository or are using a forked version of this repository, add that organization name here. All calls to github repositories will look within this organization|
-
+    |use_private_ip|Y|(Optional) If you have forked this repository or are using a forked version of this repository, add that organization name here. All calls to github repositories will look within this organization|
     4. After you have entered all the key value pairs, click **Next**.
     5. Choose a name for your key. Remember this name for when you run the initial script.  
 
