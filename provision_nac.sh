@@ -152,6 +152,22 @@ fi
 if [ "$IS_ES" == "N" ]; then
     echo "ERROR ::: ElasticSearch Domain is Not Configured. Need to Provision ElasticSearch Domain Before, NAC Provisioning."
     echo "INFO ::: Begin ElasticSearch Domain Provisioning."
+    ######################## Check If ES ServiceLink Role Available ###############################################
+    ES_ServiceLink_NAME=$(aws iam get-role --role-name AWSServiceRoleForAmazonOpenSearchService --profile "${AWS_PROFILE}" | jq -r '.Role' | jq -r '.RoleName')
+    if [ "$ES_ServiceLink_NAME" == "" ] || [ "$ES_ServiceLink_NAME" == null ]; then
+        echo "ERROR ::: OpenSearch ServiceLink Role is Not Available, Creating Servicelink Role."
+        Create_ServiceLink_NAME=$(aws iam create-service-linked-role --aws-service-name opensearchservice.amazonaws.com --profile "${AWS_PROFILE}")
+        if [ "$Create_ServiceLink_NAME" != "" ]; then
+            RoleOS=$(echo $Create_ServiceLink_NAME | jq -r '.Role' | jq -r '.RoleName')
+            echo "INFO ::: OpenSearch ServiceLink Role Created : $RoleOS"
+        fi
+    else
+        echo "INFO ::: ES_ServiceLink_NAME NAME : $ES_ServiceLink_NAME"
+        echo "INFO ::: OpenSearch ServiceLink Role already Available !!!"
+    fi
+    #####################################################################################################
+
+
    ########## Download ElasticSearch Provisioning Code from GitHub ##########
 	### GITHUB_ORGANIZATION defaults to nasuni-labs
 	REPO_FOLDER="nasuni-awsopensearch"
