@@ -1,27 +1,26 @@
 #!/bin/bash
-
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 #############################################################################################
-#### This Script Targets NAC Deployment from any Linux Box 
-#### Prequisites: 
+#### This Script Targets NAC Deployment from any Linux Box
+#### Prequisites:
 ####       1- Software need to be Installed:
-####             a- AWS CLI V2 
-####             b- Python 3 
-####             c- curl 
-####             d- git 
-####             e- jq 
-####             f- wget 
+####             a- AWS CLI V2
+####             b- Python 3
+####             c- curl
+####             d- git
+####             e- jq
+####             f- wget
 ####             e- Terraform V 1.0.7
-####       2- AWS User Profile should be configured 
+####       2- AWS User Profile should be configured
 ####             a- If not configured run the command as below and provide correct values:
 ####                  aws configure --profile nasuni
-####       3- NMC Volume 
-####       5- User Specific AWS UserSecret  
+####       3- NMC Volume
+####       5- User Specific AWS UserSecret
 ####             a- User need to provide/Update valid values for below keys:
 ####
 #############################################################################################
 set -e
-
-
 
 START=$(date +%s)
 {
@@ -37,51 +36,86 @@ read_TFVARS() {
       "user_vpc_id") USER_VPC_ID="$value" ;;
       "user_subnet_id") USER_SUBNET_ID="$value" ;;
       "use_private_ip") USE_PRIVATE_IP="$value" ;;
+      "frequency") FREQUENCY="$value" ;;
     esac
   done < "$file"
 }
 
 
+generate_tracker_json(){
+#### TRACKER JSON Creation
+    OS_URL=$1
+    KIBANA_URL=$2
+    DEFAULT_URL=$3
+    FREQUENCY=$4
+    USER_SECRET=$5
+    CREATED_BY=$6
+    CREATED_ON=$7
+    TRACKER_NMC_VOLUME_NAME=$8
+    ANALYTICS_SERVICE=$9
+    MOST_RECENT_RUN=${10}
+    CURRENT_STATE=${11}
+    LATEST_TOC_HANDLE_PROCESSED=${12}
+    echo "################################################"
+    echo "OS_URL : $OS_URL"
+    echo "KIBANA_URL: $KIBANA_URL"
+    echo "DEFAULT_URL: $DEFAULT_URL"
+    echo "FREQUENCY: $FREQUENCY"
+    echo "USER_SECRET: $USER_SECRET"
+    echo "CREATED_BY: $CREATED_BY"
+    echo "CREATED_ON: $CREATED_ON"
+    echo "TRACKER_NMC_VOLUME_NAME: $TRACKER_NMC_VOLUME_NAME"
+    echo "ANALYTICS_SERVICE: $ANALYTICS_SERVICE"
+    echo "MOST_RECENT_RUN: $MOST_RECENT_RUN"
+    echo "CURRENT_STATE: $CURRENT_STATE"
+    echo "LATEST_TOC_HANDLE_PROCESSED: $LATEST_TOC_HANDLE_PROCESSED"
+    echo "################################################"
+
+    python3 ../tracker_json.py $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED
+}
+
 check_if_secret_exists() {
-	USER_SECRET="$1"
-	AWS_PROFILE="$2"
-	AWS_REGION="$3"
-	# Verify the Secret Exists
-	if [[ -n $USER_SECRET ]]; then
-		COMMAND=`aws secretsmanager get-secret-value --secret-id ${USER_SECRET} --profile ${AWS_PROFILE} --region ${AWS_REGION}`
-		RES=$?
-		if [[ $RES -eq 0 ]]; then
-			### echo "INFO ::: Secret ${USER_SECRET} Exists. $RES"
-			echo "Y"
-		else
-			### echo "ERROR ::: $RES :: Secret ${USER_SECRET} Does'nt Exist in ${AWS_REGION} region. OR, Invalid Secret name passed as 4th parameter"
-			echo "N"
-			# exit 0
-		fi
-	fi
+        USER_SECRET="$1"
+        AWS_PROFILE="$2"
+        AWS_REGION="$3"
+        # Verify the Secret Exists
+        echo USER_SECRET $USER_SECRET
+        echo AWS_PROFILE $AWS_PROFILE
+        echo AWS_REGION $AWS_REGION
+        if [[ -n $USER_SECRET ]]; then
+                COMMAND=$(aws secretsmanager get-secret-value --secret-id ${USER_SECRET} --profile ${AWS_PROFILE} --region ${AWS_REGION})
+                #$COMMAND ###SSA
+                RES=$?
+                if [[ $RES -eq 0 ]]; then
+                        ### echo "INFO ::: Secret ${USER_SECRET} Exists. $RES"
+                        echo "Y"
+                else
+                        ### echo "ERROR ::: $RES :: Secret ${USER_SECRET} Does'nt Exist in ${AWS_REGION} region. OR, Invalid Secret name passed as 4th parameter"
+                        echo "N"
+                        # exit 0
+                fi
+        fi
 }
 
 
 validate_github() {
-	GITHUB_ORGANIZATION=$1
-	REPO_FOLDER=$2
-	if [[ $GITHUB_ORGANIZATION == "" ]];then
-		GITHUB_ORGANIZATION="nasuni-labs"
-		echo "INFO ::: github_organization not provided as Secret Key-Value pair. So considering nasuni-labs as the default value !!!"
-	fi 
-	GIT_REPO="https://github.com/$GITHUB_ORGANIZATION/$REPO_FOLDER.git"
-	echo "INFO ::: git repo $GIT_REPO"
-	git ls-remote $GIT_REPO -q
-	REPO_EXISTS=$?
-	if [ $REPO_EXISTS -ne 0 ]; then
-		echo "ERROR ::: Unable to Access the git repo $GIT_REPO. Execution STOPPED"
-		exit 1
-	else
-		echo "INFO ::: git repo accessible. Continue . . . Provisioning . . . "
-	fi
+        GITHUB_ORGANIZATION=$1
+        REPO_FOLDER=$2
+        if [[ $GITHUB_ORGANIZATION == "" ]];then
+                GITHUB_ORGANIZATION="nasuni-labs"
+                echo "INFO ::: github_organization not provided as Secret Key-Value pair. So considering nasuni-labs as the default value !!!"
+        fi
+        GIT_REPO="https://github.com/$GITHUB_ORGANIZATION/$REPO_FOLDER.git"
+        echo "INFO ::: git repo $GIT_REPO"
+        git ls-remote $GIT_REPO -q
+        REPO_EXISTS=$?
+        if [ $REPO_EXISTS -ne 0 ]; then
+                echo "ERROR ::: Unable to Access the git repo $GIT_REPO. Execution STOPPED"
+                exit 1
+        else
+                echo "INFO ::: git repo accessible. Continue . . . Provisioning . . . "
+        fi
 }
-
-
 
 read_TFVARS "$TFVARS_FILE"
 
@@ -96,6 +130,7 @@ OS_ADMIIN_SECRET="nasuni-labs-os-admin"
 ### Verify the Secret Exists
 OS_ADMIIN_SECRET_EXISTS=$(check_if_secret_exists $OS_ADMIIN_SECRET $AWS_PROFILE $AWS_REGION)
 echo "INFO ::: OS_ADMIIN_SECRET_EXISTS ::: $OS_ADMIIN_SECRET_EXISTS "
+#exit 1
 if [ "$OS_ADMIIN_SECRET_EXISTS" == "N" ]; then
     ## Fourth argument is a File && the User Secret Doesn't exist ==> User wants to Create a new Secret
     ### Create Secret
@@ -129,7 +164,7 @@ else
         echo "INFO ::: ES_PROCESSING : $ES_PROCESSING"
         ES_UPGRADE_PROCESSING=$(aws es describe-elasticsearch-domain --domain-name "${ES_DOMAIN_NAME}" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.DomainStatus.UpgradeProcessing')
         echo "INFO ::: ES_UPGRADE_PROCESSING : $ES_UPGRADE_PROCESSING"
-    
+
         if [ "$ES_PROCESSING" == "false" ] &&  [ "$ES_UPGRADE_PROCESSING" == "false" ]; then
             echo "INFO ::: ElasticSearch Domain ::: $ES_DOMAIN_NAME is Active"
             IS_ES="Y"
@@ -142,13 +177,14 @@ else
         IS_ES="N"
     fi
 fi
+
 if [ "$IS_ES" == "N" ]; then
     echo "ERROR ::: ElasticSearch Domain is Not Configured. Need to Provision ElasticSearch Domain Before, NAC Provisioning."
     echo "INFO ::: Begin ElasticSearch Domain Provisioning."
    ########## Download ElasticSearch Provisioning Code from GitHub ##########
-	### GITHUB_ORGANIZATION defaults to nasuni-labs
-	REPO_FOLDER="nasuni-awsopensearch"
-	validate_github $GITHUB_ORGANIZATION $REPO_FOLDER 
+        ### GITHUB_ORGANIZATION defaults to nasuni-labs
+        REPO_FOLDER="nasuni-awsopensearch"
+        validate_github $GITHUB_ORGANIZATION $REPO_FOLDER
     ########################### Git Clone  ###############################################################
     echo "INFO ::: BEGIN - Git Clone !!!"
     ### Download Provisioning Code from GitHub
@@ -178,14 +214,23 @@ if [ "$IS_ES" == "N" ]; then
     ##### RUN terraform Apply
     echo "INFO ::: ElasticSearch provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
     #### Create TFVARS FILE FOR OS Provisioning
-    if [[ "$USE_PRIVATE_IP" == "Y" ]]; then
-
+    echo USE_PRIVATE_IP $USE_PRIVATE_IP
+    USE_PRIVATE_IP=$(echo $USE_PRIVATE_IP|tr -d '"')
+    USER_SUBNET_ID=$(echo $USER_SUBNET_ID|tr -d '"')
+    USER_VPC_ID=$(echo $USER_VPC_ID|tr -d '"')
+    AWS_REGION=$(echo $AWS_REGION|tr -d '"')
+    echo USE_PRIVATE_IP $USE_PRIVATE_IP
+    #exit 1
+    if [[ "$USE_PRIVATE_IP" = Y ]]; then
+        echo "Inside Use private ip block"
         OS_TFVARS="Os.tfvars"
-        echo "user_subnet_id="\"$USER_SUBNET_ID\" >>$OS_TFVARS
+        echo "user_subnet_id="\"$USER_SUBNET_ID\" >$OS_TFVARS
         echo "user_vpc_id="\"$USER_VPC_ID\" >>$OS_TFVARS
         echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$OS_TFVARS
-
+        echo "es_region="\"$AWS_REGION\" >>$OS_TFVARS
+        echo "" >>$OS_TFVARS
         COMMAND="terraform apply -var-file=$OS_TFVARS -auto-approve"
+        $COMMAND
     else
         chmod 755 $(pwd)/*
         # exit 1
@@ -209,8 +254,24 @@ else
 fi
 
 ##################################### END ES Domain ###################################################################
-# exit 0
 
+##################################### START TRACKER JSON Creation ###################################################################
+
+echo "NAC_Activity : Export In Progress (TRACKER JSON Creation Started 1st Run)"
+
+OS_URL=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.nac_es_url')
+KIBANA_URL=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.nac_kibana_url')
+DEFAULT_URL="/SearchUI_Web/index.html"
+USER_SECRET=$OS_ADMIIN_SECRET
+CREATED_BY=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.nac_es_admin_user')
+CREATED_ON=$(date "+%Y%m%d-%H%M%S")
+TRACKER_NMC_VOLUME_NAME=$NMC_VOLUME_NAME
+ANALYTICS_SERVICE=(${TFVARS_FILE//_/ })
+ANALYTICS_SERVICE=$(echo "${ANALYTICS_SERVICE[-1]}" | cut -d'.' -f 1)
+MOST_RECENT_RUN=$(date "+%Y%m%d-%H%M%S")
+CURRENT_STATE="Export-In-progress"
+LATEST_TOC_HANDLE_PROCESSED="-"
+generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED
 NMC_VOLUME_NAME=$(echo "${TFVARS_FILE}" | rev | cut -d'/' -f 1 | rev |cut -d'.' -f 1)
 cd "$NMC_VOLUME_NAME"
 pwd
@@ -218,7 +279,7 @@ echo "INFO ::: current user :-"`whoami`
 ########## Download NAC Provisioning Code from GitHub ##########
 ### GITHUB_ORGANIZATION defaults to nasuni-labs
 REPO_FOLDER="nasuni-analyticsconnector-opensearch"
-validate_github $GITHUB_ORGANIZATION $REPO_FOLDER 
+validate_github $GITHUB_ORGANIZATION $REPO_FOLDER
 ########################### Git Clone : NAC Provisioning Repo ###############################################################
 echo "INFO ::: BEGIN - Git Clone !!!"
 ### Download Provisioning Code from GitHub
@@ -262,15 +323,29 @@ COMMAND="terraform apply -var-file=${TFVARS_FILE} -auto-approve"
 $COMMAND
 if [ $? -eq 0 ]; then
         echo "INFO ::: NAC provisioning ::: FINISH ::: Terraform apply ::: SUCCESS"
+        echo "NAC_Activity : Export Completed. Indexing in Progress ( Update TRACKER JSON 2nd Run)"
+        CURRENT_STATE="Export-complited-And-Indexing-In-progress"
+        generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED
     else
         echo "INFO ::: NAC provisioning ::: FINISH ::: Terraform apply ::: FAILED"
+        echo "NAC_Activity : Export Completed. Indexing in Progress ( Update TRACKER JSON 2nd Run)"
+        CURRENT_STATE="Export-Complited-And-Indexing-Failed"
+        generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED
         exit 1
     fi
 sleep 1800
 
+echo "NAC_Activity : Indexing Completed (Update TRACKER JSON 3rd Run)"
+MOST_RECENT_RUN=$(date "+%Y%m%d-%H%M%S")
+CURRENT_STATE="Indexing-Complited"
+
 INTERNAL_SECRET=$(head -n 1 nac_uniqui_id.txt  | tr -d "'")
 echo "INFO ::: Internal secret for NAC Discovery is : $INTERNAL_SECRET"
-### Get the NAC discovery lambda function name
+
+LATEST_TOC_HANDLE_PROCESSED=$(aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.root_handle')
+generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED
+
+##Get the NAC discovery lambda function name
 DISCOVERY_LAMBDA_NAME=$(aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name')
 
 if [ -n "$DISCOVERY_LAMBDA_NAME" ]; then
@@ -289,7 +364,6 @@ if [ "$CLEANUP" != "Y" ]; then
     if [ -z "$DISCOVERY_LAMBDA_NAME"  ]; then
         CLEANUP="Y"
     else
-        
         while [ "$LAST_UPDATE_STATUS" != "InProgress" ]; do
             LAST_UPDATE_STATUS=$(aws lambda get-function-configuration --function-name "$DISCOVERY_LAMBDA_NAME" --region "${AWS_REGION}" | jq -r '.LastUpdateStatus')
             echo "LAST_UPDATE_STATUS ::: $LAST_UPDATE_STATUS"
@@ -319,7 +393,7 @@ if [ "$CLEANUP" != "Y" ]; then
             fi
         done
     fi
-fi 
+fi
 echo "INFO ::: CleanUp Flag: $CLEANUP"
 ###################################################
 #if [ "$CLEANUP" == "Y" ]; then
@@ -340,10 +414,10 @@ echo "INFO ::: Total execution Time ::: $DIFF"
 
 } || {
     END=$(date +%s)
-	secs=$((END - START))
-	DIFF=$(printf '%02dh:%02dm:%02ds\n' $((secs/3600)) $((secs%3600/60)) $((secs%60)))
-	echo "INFO ::: Total execution Time ::: $DIFF"
-	exit 0
-    echo "INFO ::: Failed NAC Povisioning" 
+        secs=$((END - START))
+        DIFF=$(printf '%02dh:%02dm:%02ds\n' $((secs/3600)) $((secs%3600/60)) $((secs%60)))
+        echo "INFO ::: Total execution Time ::: $DIFF"
+        exit 0
+    echo "INFO ::: Failed NAC Povisioning"
 
 }
