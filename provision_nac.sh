@@ -37,6 +37,7 @@ read_TFVARS() {
       "user_subnet_id") USER_SUBNET_ID="$value" ;;
       "use_private_ip") USE_PRIVATE_IP="$value" ;;
       "frequency") FREQUENCY="$value" ;;
+      "nac_scheduler_name") NAC_SCHEDULER_NAME="$value" ;;
     esac
   done < "$file"
 }
@@ -56,6 +57,7 @@ generate_tracker_json(){
     MOST_RECENT_RUN=${10}
     CURRENT_STATE=${11}
     LATEST_TOC_HANDLE_PROCESSED=${12}
+    NAC_SCHEDULER_NAME=${13}
     echo "################################################"
     echo "OS_URL : $OS_URL"
     echo "KIBANA_URL: $KIBANA_URL"
@@ -69,9 +71,9 @@ generate_tracker_json(){
     echo "MOST_RECENT_RUN: $MOST_RECENT_RUN"
     echo "CURRENT_STATE: $CURRENT_STATE"
     echo "LATEST_TOC_HANDLE_PROCESSED: $LATEST_TOC_HANDLE_PROCESSED"
+    echo "NAC_SCHEDULER_NAME: $NAC_SCHEDULER_NAME"
     echo "################################################"
-
-    python3 ../tracker_json.py $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED
+    python3 /home/ubuntu/tracker_json.py $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
 }
 
 check_if_secret_exists() {
@@ -271,7 +273,7 @@ ANALYTICS_SERVICE=$(echo "${ANALYTICS_SERVICE[-1]}" | cut -d'.' -f 1)
 MOST_RECENT_RUN=$(date "+%Y%m%d-%H%M%S")
 CURRENT_STATE="Export-In-progress"
 LATEST_TOC_HANDLE_PROCESSED="-"
-generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED
+generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
 NMC_VOLUME_NAME=$(echo "${TFVARS_FILE}" | rev | cut -d'/' -f 1 | rev |cut -d'.' -f 1)
 cd "$NMC_VOLUME_NAME"
 pwd
@@ -325,12 +327,12 @@ if [ $? -eq 0 ]; then
         echo "INFO ::: NAC provisioning ::: FINISH ::: Terraform apply ::: SUCCESS"
         echo "NAC_Activity : Export Completed. Indexing in Progress ( Update TRACKER JSON 2nd Run)"
         CURRENT_STATE="Export-complited-And-Indexing-In-progress"
-        generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED
+        generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
     else
         echo "INFO ::: NAC provisioning ::: FINISH ::: Terraform apply ::: FAILED"
         echo "NAC_Activity : Export Completed. Indexing in Progress ( Update TRACKER JSON 2nd Run)"
         CURRENT_STATE="Export-Complited-And-Indexing-Failed"
-        generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED
+        generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
         exit 1
     fi
 sleep 1800
@@ -343,7 +345,7 @@ INTERNAL_SECRET=$(head -n 1 nac_uniqui_id.txt  | tr -d "'")
 echo "INFO ::: Internal secret for NAC Discovery is : $INTERNAL_SECRET"
 
 LATEST_TOC_HANDLE_PROCESSED=$(aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.root_handle')
-generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED
+generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
 
 ##Get the NAC discovery lambda function name
 DISCOVERY_LAMBDA_NAME=$(aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name')
