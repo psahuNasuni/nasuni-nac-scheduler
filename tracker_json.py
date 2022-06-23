@@ -69,12 +69,12 @@ def service_tracker(volume, service, service_tracker):
         service_tracker[service].append(volume)
     return service_tracker
 
-def combined_tracker_UI(os_url, kibana_url, default_url, frequency, user_secret, created_By, created_on, volume, service, most_recent_run, current_state, latest_toc_handle_processed):
+def combined_tracker_UI(os_url, kibana_url, default_url, frequency, user_secret, created_By, created_on, volume, service, most_recent_run, current_state, latest_toc_handle_processed, nac_scheduler_name):
     """
     tracker_UI: Going to create the dynamic json file
     """ 
     integration_name = volume + "_" + service
-    tracker_json_filename = "tracker.json"
+    tracker_json_filename = nac_scheduler_name + "_tracker.json"
 
     if is_file_exist(tracker_dir, tracker_json_filename):
         # Load the integration json file
@@ -137,5 +137,6 @@ if __name__ == '__main__':
     most_recent_run = sys.argv[10]
     current_state = sys.argv[11]
     latest_toc_handle_processed = sys.argv[12]
+    nac_scheduler_name = sys.argv[13]
     print("Tracker Json ::: Execution Started")
-    tracker_json = combined_tracker_UI(os_url, kibana_url, default_url, frequency, user_secret, created_By, created_on, volume, service, most_recent_run, current_state, latest_toc_handle_processed)
+    tracker_json = combined_tracker_UI(os_url, kibana_url, default_url, frequency, user_secret, created_By, created_on, volume, service, most_recent_run, current_state, latest_toc_handle_processed, nac_scheduler_name)
