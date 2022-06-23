@@ -259,7 +259,7 @@ fi
 
 ##################################### START TRACKER JSON Creation ###################################################################
 
-echo "NAC_Activity : Export In Progress (TRACKER JSON Creation Started 1st Run)"
+echo "NAC_Activity : Export In Progress"
 
 OS_URL=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.nac_es_url')
 KIBANA_URL=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.nac_kibana_url')
@@ -270,7 +270,7 @@ CREATED_ON=$(date "+%Y%m%d-%H%M%S")
 TRACKER_NMC_VOLUME_NAME=$NMC_VOLUME_NAME
 ANALYTICS_SERVICE=(${TFVARS_FILE//_/ })
 ANALYTICS_SERVICE=$(echo "${ANALYTICS_SERVICE[-1]}" | cut -d'.' -f 1)
-MOST_RECENT_RUN=$(date "+%Y%m%d-%H%M%S")
+MOST_RECENT_RUN=$(date "+%Y:%m:%d-%H:%M:%S")
 CURRENT_STATE="Export-In-progress"
 LATEST_TOC_HANDLE_PROCESSED="-"
 generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
@@ -325,27 +325,26 @@ COMMAND="terraform apply -var-file=${TFVARS_FILE} -auto-approve"
 $COMMAND
 if [ $? -eq 0 ]; then
         echo "INFO ::: NAC provisioning ::: FINISH ::: Terraform apply ::: SUCCESS"
-        echo "NAC_Activity : Export Completed. Indexing in Progress ( Update TRACKER JSON 2nd Run)"
-        CURRENT_STATE="Export-complited-And-Indexing-In-progress"
+        echo "NAC_Activity : Export Completed. Indexing in Progress"
+        CURRENT_STATE="Export-completed-And-Indexing-In-progress"
+        LATEST_TOC_HANDLE_PROCESSED="$(terraform output -raw latest_toc_handle_processed)"
+        echo "INFO ::: LATEST_TOC_HANDLE_PROCESSED for NAC Discovery is : $LATEST_TOC_HANDLE_PROCESSED"
         generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
     else
         echo "INFO ::: NAC provisioning ::: FINISH ::: Terraform apply ::: FAILED"
-        echo "NAC_Activity : Export Completed. Indexing in Progress ( Update TRACKER JSON 2nd Run)"
-        CURRENT_STATE="Export-Complited-And-Indexing-Failed"
+        echo "NAC_Activity : Export Failed/Indexing Failed"
+        CURRENT_STATE="Export-Failed-And-Indexing-Failed"
         generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
         exit 1
     fi
-sleep 1800
+sleep 300
 
-echo "NAC_Activity : Indexing Completed (Update TRACKER JSON 3rd Run)"
-MOST_RECENT_RUN=$(date "+%Y%m%d-%H%M%S")
-CURRENT_STATE="Indexing-Complited"
+echo "NAC_Activity : Indexing Completed"
+MOST_RECENT_RUN=$(date "+%Y:%m:%d-%H:%M:%S")
+CURRENT_STATE="Indexing-Completed"
 
 INTERNAL_SECRET=$(head -n 1 nac_uniqui_id.txt  | tr -d "'")
 echo "INFO ::: Internal secret for NAC Discovery is : $INTERNAL_SECRET"
-
-LATEST_TOC_HANDLE_PROCESSED="$(terraform output -raw latest_toc_handle_processed)"
-echo "INFO ::: LATEST_TOC_HANDLE_PROCESSED for NAC Discovery is : $LATEST_TOC_HANDLE_PROCESSED"
 
 generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
 
