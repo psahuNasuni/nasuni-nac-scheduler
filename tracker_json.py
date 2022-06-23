@@ -118,7 +118,7 @@ def combined_tracker_UI(os_url, kibana_url, default_url, frequency, user_secret,
 
 
 if __name__ == '__main__':
-    tracker_dir = "~/TrackerJson/"
+    tracker_dir = "/home/ubuntu/TrackerJson/"
     try:
         if not os.path.exists(tracker_dir):
             os.makedirs(tracker_dir)
