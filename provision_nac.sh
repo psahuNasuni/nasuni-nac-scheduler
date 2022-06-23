@@ -42,9 +42,8 @@ read_TFVARS() {
   done < "$file"
 }
 
-
 generate_tracker_json(){
-#### TRACKER JSON Creation
+    echo "INFO ::: Updating TRACKER JSON ... "
     OS_URL=$1
     KIBANA_URL=$2
     DEFAULT_URL=$3
@@ -58,22 +57,51 @@ generate_tracker_json(){
     CURRENT_STATE=${11}
     LATEST_TOC_HANDLE_PROCESSED=${12}
     NAC_SCHEDULER_NAME=$(echo "${13}" | tr -d '"')
-    echo "################################################"
-    echo "OS_URL : $OS_URL"
-    echo "KIBANA_URL: $KIBANA_URL"
-    echo "DEFAULT_URL: $DEFAULT_URL"
-    echo "FREQUENCY: $FREQUENCY"
-    echo "USER_SECRET: $USER_SECRET"
-    echo "CREATED_BY: $CREATED_BY"
-    echo "CREATED_ON: $CREATED_ON"
-    echo "TRACKER_NMC_VOLUME_NAME: $TRACKER_NMC_VOLUME_NAME"
-    echo "ANALYTICS_SERVICE: $ANALYTICS_SERVICE"
-    echo "MOST_RECENT_RUN: $MOST_RECENT_RUN"
-    echo "CURRENT_STATE: $CURRENT_STATE"
-    echo "LATEST_TOC_HANDLE_PROCESSED: $LATEST_TOC_HANDLE_PROCESSED"
-    echo "NAC_SCHEDULER_NAME: $NAC_SCHEDULER_NAME"
-    echo "################################################"
     python3 /home/ubuntu/tracker_json.py $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
+    echo "INFO ::: TRACKER JSON  Updated"
+}
+
+check_if_secret_exists() {
+	USER_SECRET="$1"
+	AWS_PROFILE="$2"
+	AWS_REGION="$3"
+	# Verify the Secret Exists
+	echo USER_SECRET $USER_SECRET
+	echo AWS_PROFILE $AWS_PROFILE
+	echo AWS_REGION $AWS_REGION
+	if [[ -n $USER_SECRET ]]; then
+		COMMAND=$(aws secretsmanager get-secret-value --secret-id ${USER_SECRET} --profile ${AWS_PROFILE} --region ${AWS_REGION})
+		#$COMMAND ###SSA
+		RES=$?
+		if [[ $RES -eq 0 ]]; then
+			### echo "INFO ::: Secret ${USER_SECRET} Exists. $RES"
+			echo "Y"
+		else
+			### echo "ERROR ::: $RES :: Secret ${USER_SECRET} Does'nt Exist in ${AWS_REGION} region. OR, Invalid Secret name passed as 4th parameter"
+			echo "N"
+			# exit 0
+		fi
+	fi
+}
+
+
+validate_github() {
+	GITHUB_ORGANIZATION=$1
+	REPO_FOLDER=$2
+	if [[ $GITHUB_ORGANIZATION == "" ]];then
+		GITHUB_ORGANIZATION="nasuni-labs"
+		echo "INFO ::: github_organization not provided as Secret Key-Value pair. So considering nasuni-labs as the default value !!!"
+	fi 
+	GIT_REPO="https://github.com/$GITHUB_ORGANIZATION/$REPO_FOLDER.git"
+	echo "INFO ::: git repo $GIT_REPO"
+	git ls-remote $GIT_REPO -q
+	REPO_EXISTS=$?
+	if [ $REPO_EXISTS -ne 0 ]; then
+		echo "ERROR ::: Unable to Access the git repo $GIT_REPO. Execution STOPPED"
+		exit 1
+	else
+		echo "INFO ::: git repo accessible. Continue . . . Provisioning . . . "
+	fi
 }
 
 check_if_secret_exists() {
@@ -183,6 +211,22 @@ fi
 if [ "$IS_ES" == "N" ]; then
     echo "ERROR ::: ElasticSearch Domain is Not Configured. Need to Provision ElasticSearch Domain Before, NAC Provisioning."
     echo "INFO ::: Begin ElasticSearch Domain Provisioning."
+    ######################## Check If ES ServiceLink Role Available ###############################################
+    ES_ServiceLink_NAME=$(aws iam get-role --role-name AWSServiceRoleForAmazonOpenSearchService --profile "${AWS_PROFILE}" | jq -r '.Role' | jq -r '.RoleName')
+    if [ "$ES_ServiceLink_NAME" == "" ] || [ "$ES_ServiceLink_NAME" == null ]; then
+        echo "ERROR ::: OpenSearch ServiceLink Role is Not Available, Creating Servicelink Role."
+        Create_ServiceLink_NAME=$(aws iam create-service-linked-role --aws-service-name opensearchservice.amazonaws.com --profile "${AWS_PROFILE}")
+        if [ "$Create_ServiceLink_NAME" != "" ]; then
+            RoleOS=$(echo $Create_ServiceLink_NAME | jq -r '.Role' | jq -r '.RoleName')
+            echo "INFO ::: OpenSearch ServiceLink Role Created : $RoleOS"
+        fi
+    else
+        echo "INFO ::: ES_ServiceLink_NAME NAME : $ES_ServiceLink_NAME"
+        echo "INFO ::: OpenSearch ServiceLink Role already Available !!!"
+    fi
+    #####################################################################################################
+
+
    ########## Download ElasticSearch Provisioning Code from GitHub ##########
         ### GITHUB_ORGANIZATION defaults to nasuni-labs
         REPO_FOLDER="nasuni-awsopensearch"
@@ -224,7 +268,6 @@ if [ "$IS_ES" == "N" ]; then
     echo USE_PRIVATE_IP $USE_PRIVATE_IP
     #exit 1
     if [[ "$USE_PRIVATE_IP" = Y ]]; then
-        echo "Inside Use private ip block"
         OS_TFVARS="Os.tfvars"
         echo "user_subnet_id="\"$USER_SUBNET_ID\" >$OS_TFVARS
         echo "user_vpc_id="\"$USER_VPC_ID\" >>$OS_TFVARS
