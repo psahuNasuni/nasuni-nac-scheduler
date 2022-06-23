@@ -132,7 +132,6 @@ parse_4thArgument_for_nac_scheduler_name() {
 			"user_vpc_id") USER_VPC_ID="$value" ;;
 			"user_subnet_id") USER_SUBNET_ID="$value" ;;
 			"use_private_ip") USE_PRIVATE_IP="$value" ;;
-			"frequency") FREQUENCY="$value" ;;
 			esac
 		done <"$file"
 	else
@@ -356,6 +355,9 @@ Schedule_CRON_JOB() {
 	AWS_CURRENT_USER=$(cut -d'/' -f2 <<<"$arn")
 	echo "INFO ::: $AWS_CURRENT_USER which will be added for lambda layer::: "
 	NEW_NAC_IP=$(echo $NAC_SCHEDULER_IP_ADDR | tr '.' '-')
+	RND=$(( $RANDOM % 1000000 )); 
+	LAMBDA_LAYER_SUFFIX=$(echo $RND)
+
 	echo "INFO ::: $NEW_NAC_IP which will be added for lambda layer::: "
 	echo "aws_profile="\"$AWS_PROFILE\" >>$TFVARS_FILE_NAME
 	echo "region="\"$AWS_REGION\" >>$TFVARS_FILE_NAME
@@ -366,7 +368,9 @@ Schedule_CRON_JOB() {
 	echo "aws_current_user="\"$AWS_CURRENT_USER\" >>$TFVARS_FILE_NAME ### Append Current aws user
 	echo "user_vpc_id="\"$USER_VPC_ID\" >>$TFVARS_FILE_NAME
 	echo "user_subnet_id="\"$USER_SUBNET_ID\" >>$TFVARS_FILE_NAME
+	echo "lambda_layer_suffix="\"$LAMBDA_LAYER_SUFFIX\" >>$TFVARS_FILE_NAME
 	echo "frequency="\"$FREQUENCY\" >>$TFVARS_FILE_NAME
+	echo "nac_scheduler_name="\"$NAC_SCHEDULER_NAME\" >>$TFVARS_FILE_NAME
 	if [[ "$USE_PRIVATE_IP" == "Y" ]]; then
 		echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$TFVARS_FILE_NAME
 	fi
@@ -374,7 +378,17 @@ Schedule_CRON_JOB() {
 		echo "INFO ::: $ARG_COUNT th Argument is supplied as ::: $NAC_INPUT_KVP"
 		append_nac_keys_values_to_tfvars $NAC_INPUT_KVP $TFVARS_FILE_NAME
 	fi
-	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null create_layer.sh tracker_json.py ubuntu@$NAC_SCHEDULER_IP_ADDR:~/ #SSA
+
+	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null tracker_json.py ubuntu@$NAC_SCHEDULER_IP_ADDR:~/ #SSA
+	RES="$?"
+	if [ $RES -ne 0 ]; then
+		echo "ERROR ::: Failed to Copy tracker_json.py to NAC_Scheduer Instance."
+		exit 1
+	elif [ $RES -eq 0 ]; then
+		echo "INFO ::: tracker_json.py Uploaded Successfully to NAC_Scheduer Instance."
+	fi
+
+	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null create_layer.sh ubuntu@$NAC_SCHEDULER_IP_ADDR:~/ #SSA
 	RES="$?"
 	if [ $RES -ne 0 ]; then
 		echo "ERROR ::: Failed to Copy create_layer.sh to NAC_Scheduer Instance."
@@ -392,7 +406,7 @@ Schedule_CRON_JOB() {
 	fi
 	#pass pub_ip to fun SSA
 	#IAM_USER to be defined. et user 
-	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sh create_layer.sh nasuni-labs-os-lambda-layer $AWS_PROFILE $NAC_SCHEDULER_IP_ADDR $AWS_CURRENT_USER" #SSA
+	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sh create_layer.sh nasuni-labs-os-lambda-layer $AWS_PROFILE $NAC_SCHEDULER_IP_ADDR $AWS_CURRENT_USER $LAMBDA_LAYER_SUFFIX" #SSA
 	RES="$?"
 	if [ $RES -ne 0 ]; then
 		echo "ERROR ::: Failed to execute create_layer.sh to NAC_Scheduer Instance."
@@ -426,7 +440,7 @@ Schedule_CRON_JOB() {
 		### Set up a new CRON JOB for NAC Provisioning
 
 		echo "INFO ::: Setting CRON JOB for $CRON_DIR_NAME as it is not present"
-		ssh -i "$PEM" ubuntu@$NAC_SCHEDULER_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "(crontab -l ; echo '*/$FREQUENCY * * * * sh ~/$CRON_DIR_NAME/provision_nac.sh  ~/$CRON_DIR_NAME/$TFVARS_FILE_NAME >> ~/$CRON_DIR_NAME/CRON_log-$CRON_DIR_NAME-$DATE_WITH_TIME.log') | sort - | uniq - | crontab -"
+		ssh -i "$PEM" ubuntu@$NAC_SCHEDULER_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "(crontab -l ; echo '*/$FREQUENCY * * * * cd ~/$CRON_DIR_NAME && /bin/bash provision_nac.sh  ~/$CRON_DIR_NAME/$TFVARS_FILE_NAME >> ~/$CRON_DIR_NAME/CRON_log-$CRON_DIR_NAME-$DATE_WITH_TIME.log 2>&1') | sort - | uniq - | crontab -"
 		if [ $? -eq 0 ]; then
 			echo "INFO ::: CRON JOB Scheduled for NMC VOLUME and Service :: $CRON_DIR_NAME"
 			exit 0
