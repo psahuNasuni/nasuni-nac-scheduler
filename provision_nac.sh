@@ -57,7 +57,7 @@ generate_tracker_json(){
     MOST_RECENT_RUN=${10}
     CURRENT_STATE=${11}
     LATEST_TOC_HANDLE_PROCESSED=${12}
-    NAC_SCHEDULER_NAME=${13}
+    NAC_SCHEDULER_NAME=$(echo "${13}" | tr -d '"')
     echo "################################################"
     echo "OS_URL : $OS_URL"
     echo "KIBANA_URL: $KIBANA_URL"
@@ -344,7 +344,9 @@ CURRENT_STATE="Indexing-Complited"
 INTERNAL_SECRET=$(head -n 1 nac_uniqui_id.txt  | tr -d "'")
 echo "INFO ::: Internal secret for NAC Discovery is : $INTERNAL_SECRET"
 
-LATEST_TOC_HANDLE_PROCESSED=$(aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.root_handle')
+LATEST_TOC_HANDLE_PROCESSED="$(terraform output -raw latest_toc_handle_processed)"
+echo "INFO ::: LATEST_TOC_HANDLE_PROCESSED for NAC Discovery is : $LATEST_TOC_HANDLE_PROCESSED"
+
 generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
 
 ##Get the NAC discovery lambda function name
