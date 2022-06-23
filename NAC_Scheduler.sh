@@ -372,15 +372,7 @@ Schedule_CRON_JOB() {
 		echo "INFO ::: $ARG_COUNT th Argument is supplied as ::: $NAC_INPUT_KVP"
 		append_nac_keys_values_to_tfvars $NAC_INPUT_KVP $TFVARS_FILE_NAME
 	fi
-	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null tracker_json.py ubuntu@$NAC_SCHEDULER_IP_ADDR:~/ #SSA
-	RES="$?"
-	if [ $RES -ne 0 ]; then
-		echo "ERROR ::: Failed to Copy tracker_json.py to NAC_Scheduer Instance."
-		exit 1
-	elif [ $RES -eq 0 ]; then
-		echo "INFO ::: tracker_json.py Uploaded Successfully to NAC_Scheduer Instance."
-	fi
-	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null create_layer.sh ubuntu@$NAC_SCHEDULER_IP_ADDR:~/ #SSA
+	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null create_layer.sh tracker_json.py ubuntu@$NAC_SCHEDULER_IP_ADDR:~/ #SSA
 	RES="$?"
 	if [ $RES -ne 0 ]; then
 		echo "ERROR ::: Failed to Copy create_layer.sh to NAC_Scheduer Instance."
