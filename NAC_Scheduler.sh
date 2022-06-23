@@ -132,6 +132,7 @@ parse_4thArgument_for_nac_scheduler_name() {
 			"user_vpc_id") USER_VPC_ID="$value" ;;
 			"user_subnet_id") USER_SUBNET_ID="$value" ;;
 			"use_private_ip") USE_PRIVATE_IP="$value" ;;
+			"frequency") FREQUENCY="$value" ;;
 			esac
 		done <"$file"
 	else
@@ -365,6 +366,7 @@ Schedule_CRON_JOB() {
 	echo "aws_current_user="\"$AWS_CURRENT_USER\" >>$TFVARS_FILE_NAME ### Append Current aws user
 	echo "user_vpc_id="\"$USER_VPC_ID\" >>$TFVARS_FILE_NAME
 	echo "user_subnet_id="\"$USER_SUBNET_ID\" >>$TFVARS_FILE_NAME
+	echo "frequency="\"$FREQUENCY\" >>$TFVARS_FILE_NAME
 	if [[ "$USE_PRIVATE_IP" == "Y" ]]; then
 		echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$TFVARS_FILE_NAME
 	fi
