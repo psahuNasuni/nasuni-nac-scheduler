@@ -66,9 +66,6 @@ check_if_secret_exists() {
 	AWS_PROFILE="$2"
 	AWS_REGION="$3"
 	# Verify the Secret Exists
-	echo USER_SECRET $USER_SECRET
-	echo AWS_PROFILE $AWS_PROFILE
-	echo AWS_REGION $AWS_REGION
 	if [[ -n $USER_SECRET ]]; then
 		COMMAND=$(aws secretsmanager get-secret-value --secret-id ${USER_SECRET} --profile ${AWS_PROFILE} --region ${AWS_REGION})
 		#$COMMAND ###SSA
@@ -83,7 +80,6 @@ check_if_secret_exists() {
 		fi
 	fi
 }
-
 
 validate_github() {
 	GITHUB_ORGANIZATION=$1
@@ -92,49 +88,6 @@ validate_github() {
 		GITHUB_ORGANIZATION="nasuni-labs"
 		echo "INFO ::: github_organization not provided as Secret Key-Value pair. So considering nasuni-labs as the default value !!!"
 	fi 
-	GIT_REPO="https://github.com/$GITHUB_ORGANIZATION/$REPO_FOLDER.git"
-	echo "INFO ::: git repo $GIT_REPO"
-	git ls-remote $GIT_REPO -q
-	REPO_EXISTS=$?
-	if [ $REPO_EXISTS -ne 0 ]; then
-		echo "ERROR ::: Unable to Access the git repo $GIT_REPO. Execution STOPPED"
-		exit 1
-	else
-		echo "INFO ::: git repo accessible. Continue . . . Provisioning . . . "
-	fi
-}
-
-check_if_secret_exists() {
-	USER_SECRET="$1"
-	AWS_PROFILE="$2"
-	AWS_REGION="$3"
-	# Verify the Secret Exists
-	echo USER_SECRET $USER_SECRET
-	echo AWS_PROFILE $AWS_PROFILE
-	echo AWS_REGION $AWS_REGION
-	if [[ -n $USER_SECRET ]]; then
-		COMMAND=$(aws secretsmanager get-secret-value --secret-id ${USER_SECRET} --profile ${AWS_PROFILE} --region ${AWS_REGION})
-		#$COMMAND ###SSA
-		RES=$?
-		if [[ $RES -eq 0 ]]; then
-			### echo "INFO ::: Secret ${USER_SECRET} Exists. $RES"
-			echo "Y"
-		else
-			### echo "ERROR ::: $RES :: Secret ${USER_SECRET} Does'nt Exist in ${AWS_REGION} region. OR, Invalid Secret name passed as 4th parameter"
-			echo "N"
-			# exit 0
-		fi
-	fi
-}
-
-
-validate_github() {
-	GITHUB_ORGANIZATION=$1
-	REPO_FOLDER=$2
-	if [[ $GITHUB_ORGANIZATION == "" ]];then
-		GITHUB_ORGANIZATION="nasuni-labs"
-		echo "INFO ::: github_organization not provided as Secret Key-Value pair. So considering nasuni-labs as the default value !!!"
-	fi
 	GIT_REPO="https://github.com/$GITHUB_ORGANIZATION/$REPO_FOLDER.git"
 	echo "INFO ::: git repo $GIT_REPO"
 	git ls-remote $GIT_REPO -q
