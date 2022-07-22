@@ -175,11 +175,12 @@ check_if_secret_exists() {
 	USER_SECRET="$1"
 	AWS_PROFILE="$2"
 	AWS_REGION="$3"
+
 	# Verify the Secret Exists
 	if [[ -n $USER_SECRET ]]; then
-		COMMAND=`aws secretsmanager get-secret-value --secret-id ${USER_SECRET} --profile ${AWS_PROFILE} --region ${AWS_REGION}`
-		RES=$?
-		if [[ $RES -eq 0 ]]; then
+		COMMAND=$(aws secretsmanager list-secrets --profile "${AWS_PROFILE}" --region "${AWS_REGION}" | jq -r '.SecretList[]| select(.Name == '\"$USER_SECRET\"') | {Name}' | jq -r '.Name')
+
+		if [[ "$COMMAND" = "$USER_SECRET" ]]; then
 			### echo "INFO ::: Secret ${USER_SECRET} Exists. $RES"
 			echo "Y"
 		else
@@ -478,6 +479,33 @@ fi
 
 ### Validate aws_profile
 validate_aws_profile
+
+########################Create OS Admin Secret, If its not available ###############
+
+OS_ADMIIN_SECRET="nasuni-labs-os-admin"
+### Verify the Secret Exists
+OS_ADMIIN_SECRET_EXISTS=""
+OS_ADMIIN_SECRET_EXISTS=$(check_if_secret_exists $OS_ADMIIN_SECRET $AWS_PROFILE $AWS_REGION)
+echo "INFO ::: OS_ADMIIN_SECRET_EXISTS ::: $OS_ADMIIN_SECRET_EXISTS "
+
+if [ "$OS_ADMIIN_SECRET_EXISTS" == "N" ]; then
+	## Fourth argument is a File && the User Secret Doesn't exist ==> User wants to Create a new Secret
+	### Create Secret
+	echo "INFO ::: Create Secret $OS_ADMIIN_SECRET"
+	aws secretsmanager create-secret --name "${OS_ADMIIN_SECRET}" \
+		--description "Preserving OpenSearch specific data/secrets" \
+		--region "${AWS_REGION}" --profile "${AWS_PROFILE}"
+			RES="$?"
+			if [ $RES -ne 0 ]; then
+				echo "ERROR ::: $RES Failed to Create Secret $OS_ADMIIN_SECRET as, its already exists."
+				exit 1
+			elif [ $RES -eq 0 ]; then
+				echo "INFO ::: Secret $OS_ADMIIN_SECRET Created"
+			fi
+		else
+			echo "INFO ::: Secret $OS_ADMIIN_SECRET Already Exists"
+fi
+
 ########## Check If fourth argument is provided
 USER_SECRET_EXISTS="N"
 if [[ -n "$FOURTH_ARG" ]]; then

@@ -108,31 +108,7 @@ NMC_VOLUME_NAME=$(echo "$NMC_VOLUME_NAME" | tr -d '"')
 GITHUB_ORGANIZATION=$(echo "$GITHUB_ORGANIZATION" | tr -d '"')
 NAC_SCHEDULER_NAME=$(echo "$NAC_SCHEDULER_NAME" | tr -d '"')
 echo NAC_SCHDULER_NAME $NAC_SCHEDULER_NAME
-
-########################Create OS Admin Secret, If its not available ###############
-
 OS_ADMIIN_SECRET="nasuni-labs-os-admin"
-### Verify the Secret Exists
-OS_ADMIIN_SECRET_EXISTS=$(check_if_secret_exists $OS_ADMIIN_SECRET $AWS_PROFILE $AWS_REGION)
-echo "INFO ::: OS_ADMIIN_SECRET_EXISTS ::: $OS_ADMIIN_SECRET_EXISTS "
-
-if [ "$OS_ADMIIN_SECRET_EXISTS" == "N" ]; then
-	## Fourth argument is a File && the User Secret Doesn't exist ==> User wants to Create a new Secret
-	### Create Secret
-	echo "INFO ::: Create Secret $OS_ADMIIN_SECRET"
-	aws secretsmanager create-secret --name "${OS_ADMIIN_SECRET}" \
-		--description "Preserving OpenSearch specific data/secrets" \
-		--region "${AWS_REGION}" --profile "${AWS_PROFILE}"
-			RES="$?"
-			if [ $RES -ne 0 ]; then
-				echo "ERROR ::: $RES Failed to Create Secret $OS_ADMIIN_SECRET as, its already exists."
-				exit 1
-			elif [ $RES -eq 0 ]; then
-				echo "INFO ::: Secret $OS_ADMIIN_SECRET Created"
-			fi
-		else
-			echo "INFO ::: Secret $OS_ADMIIN_SECRET Already Exists"
-fi
 
 ######################## Check If ES Domain Available ###############################################
 ES_DOMAIN_NAME=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.es_domain_name')
@@ -164,7 +140,7 @@ else
 fi
 
 if [ "$IS_ES" == "N" ]; then
-	echo "ERROR ::: ElasticSearch Domain is Not Configured. Need to Provision ElasticSearch Domain Before, NAC Provisioning."
+	echo "INFO ::: ElasticSearch Domain is Not Configured. Need to Provision ElasticSearch Domain Before, NAC Provisioning."
 	echo "INFO ::: Begin ElasticSearch Domain Provisioning."
 	######################## Check If ES ServiceLink Role Available ###############################################
 	ES_ServiceLink_NAME=$(aws iam get-role --role-name AWSServiceRoleForAmazonOpenSearchService --profile "${AWS_PROFILE}" | jq -r '.Role' | jq -r '.RoleName')
