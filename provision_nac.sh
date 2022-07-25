@@ -111,50 +111,50 @@ echo NAC_SCHDULER_NAME $NAC_SCHEDULER_NAME
 OS_ADMIIN_SECRET="nasuni-labs-os-admin"
 
 ######################## Check If ES Domain Available ###############################################
-ES_DOMAIN_NAME=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.es_domain_name')
-echo "INFO ::: ES_DOMAIN NAME : $ES_DOMAIN_NAME"
-IS_ES="N"
-if [ "$ES_DOMAIN_NAME" == "" ] || [ "$ES_DOMAIN_NAME" == null ]; then
-	echo "ERROR ::: ElasticSearch Domain is Not provided in admin secret"
-	IS_ES="N"
-else
-	ES_CREATED=$(aws es describe-elasticsearch-domain --domain-name "${ES_DOMAIN_NAME}" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.DomainStatus.Created')
-	if [ $? -eq 0 ]; then
-		echo "INFO ::: ES_CREATED : $ES_CREATED"
-		ES_PROCESSING=$(aws es describe-elasticsearch-domain --domain-name "${ES_DOMAIN_NAME}" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.DomainStatus.Processing')
-		echo "INFO ::: ES_PROCESSING : $ES_PROCESSING"
-		ES_UPGRADE_PROCESSING=$(aws es describe-elasticsearch-domain --domain-name "${ES_DOMAIN_NAME}" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.DomainStatus.UpgradeProcessing')
-		echo "INFO ::: ES_UPGRADE_PROCESSING : $ES_UPGRADE_PROCESSING"
+# ES_DOMAIN_NAME=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.es_domain_name')
+# echo "INFO ::: ES_DOMAIN NAME : $ES_DOMAIN_NAME"
+# IS_ES="N"
+# if [ "$ES_DOMAIN_NAME" == "" ] || [ "$ES_DOMAIN_NAME" == null ]; then
+# 	echo "ERROR ::: ElasticSearch Domain is Not provided in admin secret"
+# 	IS_ES="N"
+# else
+# 	ES_CREATED=$(aws es describe-elasticsearch-domain --domain-name "${ES_DOMAIN_NAME}" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.DomainStatus.Created')
+# 	if [ $? -eq 0 ]; then
+# 		echo "INFO ::: ES_CREATED : $ES_CREATED"
+# 		ES_PROCESSING=$(aws es describe-elasticsearch-domain --domain-name "${ES_DOMAIN_NAME}" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.DomainStatus.Processing')
+# 		echo "INFO ::: ES_PROCESSING : $ES_PROCESSING"
+# 		ES_UPGRADE_PROCESSING=$(aws es describe-elasticsearch-domain --domain-name "${ES_DOMAIN_NAME}" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.DomainStatus.UpgradeProcessing')
+# 		echo "INFO ::: ES_UPGRADE_PROCESSING : $ES_UPGRADE_PROCESSING"
 
-		if [ "$ES_PROCESSING" == "false" ] &&  [ "$ES_UPGRADE_PROCESSING" == "false" ]; then
-			echo "INFO ::: ElasticSearch Domain ::: $ES_DOMAIN_NAME is Active"
-			IS_ES="Y"
-		else
-			echo "ERROR ::: ElasticSearch Domain ::: $ES_DOMAIN_NAME is either unavailable Or Not Active"
-			IS_ES="N"
-		fi
-	else
-		echo "ERROR ::: ElasticSearch Domain ::: $ES_DOMAIN_NAME not found"
-		IS_ES="N"
-	fi
-fi
+# 		if [ "$ES_PROCESSING" == "false" ] &&  [ "$ES_UPGRADE_PROCESSING" == "false" ]; then
+# 			echo "INFO ::: ElasticSearch Domain ::: $ES_DOMAIN_NAME is Active"
+# 			IS_ES="Y"
+# 		else
+# 			echo "ERROR ::: ElasticSearch Domain ::: $ES_DOMAIN_NAME is either unavailable Or Not Active"
+# 			IS_ES="N"
+# 		fi
+# 	else
+# 		echo "ERROR ::: ElasticSearch Domain ::: $ES_DOMAIN_NAME not found"
+# 		IS_ES="N"
+# 	fi
+# fi
 
-if [ "$IS_ES" == "N" ]; then
-	echo "INFO ::: ElasticSearch Domain is Not Configured. Need to Provision ElasticSearch Domain Before, NAC Provisioning."
-	echo "INFO ::: Begin ElasticSearch Domain Provisioning."
-	######################## Check If ES ServiceLink Role Available ###############################################
-	ES_ServiceLink_NAME=$(aws iam get-role --role-name AWSServiceRoleForAmazonOpenSearchService --profile "${AWS_PROFILE}" | jq -r '.Role' | jq -r '.RoleName')
-	if [ "$ES_ServiceLink_NAME" == "" ] || [ "$ES_ServiceLink_NAME" == null ]; then
-		echo "ERROR ::: OpenSearch ServiceLink Role is Not Available, Creating Servicelink Role."
-		Create_ServiceLink_NAME=$(aws iam create-service-linked-role --aws-service-name opensearchservice.amazonaws.com --profile "${AWS_PROFILE}")
-		if [ "$Create_ServiceLink_NAME" != "" ]; then
-			RoleOS=$(echo $Create_ServiceLink_NAME | jq -r '.Role' | jq -r '.RoleName')
-			echo "INFO ::: OpenSearch ServiceLink Role Created : $RoleOS"
-		fi
-	else
-		echo "INFO ::: ES_ServiceLink_NAME NAME : $ES_ServiceLink_NAME"
-		echo "INFO ::: OpenSearch ServiceLink Role already Available !!!"
-	fi
+# if [ "$IS_ES" == "N" ]; then
+# 	echo "INFO ::: ElasticSearch Domain is Not Configured. Need to Provision ElasticSearch Domain Before, NAC Provisioning."
+# 	echo "INFO ::: Begin ElasticSearch Domain Provisioning."
+# 	######################## Check If ES ServiceLink Role Available ###############################################
+# 	ES_ServiceLink_NAME=$(aws iam get-role --role-name AWSServiceRoleForAmazonOpenSearchService --profile "${AWS_PROFILE}" | jq -r '.Role' | jq -r '.RoleName')
+# 	if [ "$ES_ServiceLink_NAME" == "" ] || [ "$ES_ServiceLink_NAME" == null ]; then
+# 		echo "ERROR ::: OpenSearch ServiceLink Role is Not Available, Creating Servicelink Role."
+# 		Create_ServiceLink_NAME=$(aws iam create-service-linked-role --aws-service-name opensearchservice.amazonaws.com --profile "${AWS_PROFILE}")
+# 		if [ "$Create_ServiceLink_NAME" != "" ]; then
+# 			RoleOS=$(echo $Create_ServiceLink_NAME | jq -r '.Role' | jq -r '.RoleName')
+# 			echo "INFO ::: OpenSearch ServiceLink Role Created : $RoleOS"
+# 		fi
+# 	else
+# 		echo "INFO ::: ES_ServiceLink_NAME NAME : $ES_ServiceLink_NAME"
+# 		echo "INFO ::: OpenSearch ServiceLink Role already Available !!!"
+# 	fi
 	#####################################################################################################
 
 
