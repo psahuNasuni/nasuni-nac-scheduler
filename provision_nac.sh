@@ -158,77 +158,77 @@ OS_ADMIIN_SECRET="nasuni-labs-os-admin"
 	#####################################################################################################
 
 
-   ########## Download ElasticSearch Provisioning Code from GitHub ##########
-   ### GITHUB_ORGANIZATION defaults to nasuni-labs
-   REPO_FOLDER="nasuni-awsopensearch"
-   validate_github $GITHUB_ORGANIZATION $REPO_FOLDER
-   ########################### Git Clone  ###############################################################
-   echo "INFO ::: BEGIN - Git Clone !!!"
-   ### Download Provisioning Code from GitHub
-   GIT_REPO_NAME=$(echo ${GIT_REPO} | sed 's/.*\/\([^ ]*\/[^.]*\).*/nasuni-\1/' | cut -d "/" -f 2)
-   echo "INFO ::: $GIT_REPO"
-   echo "INFO ::: GIT_REPO_NAME $GIT_REPO_NAME"
-   pwd
-   ls
-   echo "INFO ::: Removing ${GIT_REPO_NAME}"
-   rm -rf "${GIT_REPO_NAME}"
-   pwd
-   COMMAND="git clone -b main ${GIT_REPO}"
-   $COMMAND
-   RESULT=$?
-   if [ $RESULT -eq 0 ]; then
-	   echo "INFO ::: FINISH ::: GIT clone SUCCESS for repo ::: $GIT_REPO_NAME"
-   else
-	   echo "INFO ::: FINISH ::: GIT Clone FAILED for repo ::: $GIT_REPO_NAME"
-	   exit 1
-   fi
-   cd "${GIT_REPO_NAME}"
-   ##### RUN terraform init
-   echo "INFO ::: ElasticSearch provisioning ::: BEGIN ::: Executing ::: Terraform init . . . . . . . . "
-   COMMAND="terraform init"
-   $COMMAND
+#    ########## Download ElasticSearch Provisioning Code from GitHub ##########
+#    ### GITHUB_ORGANIZATION defaults to nasuni-labs
+#    REPO_FOLDER="nasuni-awsopensearch"
+#    validate_github $GITHUB_ORGANIZATION $REPO_FOLDER
+#    ########################### Git Clone  ###############################################################
+#    echo "INFO ::: BEGIN - Git Clone !!!"
+#    ### Download Provisioning Code from GitHub
+#    GIT_REPO_NAME=$(echo ${GIT_REPO} | sed 's/.*\/\([^ ]*\/[^.]*\).*/nasuni-\1/' | cut -d "/" -f 2)
+#    echo "INFO ::: $GIT_REPO"
+#    echo "INFO ::: GIT_REPO_NAME $GIT_REPO_NAME"
+#    pwd
+#    ls
+#    echo "INFO ::: Removing ${GIT_REPO_NAME}"
+#    rm -rf "${GIT_REPO_NAME}"
+#    pwd
+#    COMMAND="git clone -b main ${GIT_REPO}"
+#    $COMMAND
+#    RESULT=$?
+#    if [ $RESULT -eq 0 ]; then
+# 	   echo "INFO ::: FINISH ::: GIT clone SUCCESS for repo ::: $GIT_REPO_NAME"
+#    else
+# 	   echo "INFO ::: FINISH ::: GIT Clone FAILED for repo ::: $GIT_REPO_NAME"
+# 	   exit 1
+#    fi
+#    cd "${GIT_REPO_NAME}"
+#    ##### RUN terraform init
+#    echo "INFO ::: ElasticSearch provisioning ::: BEGIN ::: Executing ::: Terraform init . . . . . . . . "
+#    COMMAND="terraform init"
+#    $COMMAND
 
-    ##### RUN terraform Apply
-    echo "INFO ::: ElasticSearch provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
-    #### Create TFVARS FILE FOR OS Provisioning
-    echo USE_PRIVATE_IP $USE_PRIVATE_IP
-    USE_PRIVATE_IP=$(echo $USE_PRIVATE_IP|tr -d '"')
-    USER_SUBNET_ID=$(echo $USER_SUBNET_ID|tr -d '"')
-    USER_VPC_ID=$(echo $USER_VPC_ID|tr -d '"')
-    AWS_REGION=$(echo $AWS_REGION|tr -d '"')
-    echo USE_PRIVATE_IP $USE_PRIVATE_IP
-    if [[ "$USE_PRIVATE_IP" = Y ]]; then
-	    OS_TFVARS="Os.tfvars"
-	    echo "user_subnet_id="\"$USER_SUBNET_ID\" >$OS_TFVARS
-	    echo "user_vpc_id="\"$USER_VPC_ID\" >>$OS_TFVARS
-	    echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$OS_TFVARS
-	    echo "es_region="\"$AWS_REGION\" >>$OS_TFVARS
-	    echo "" >>$OS_TFVARS
-	    COMMAND="terraform apply -var-file=$OS_TFVARS -auto-approve"
-	    $COMMAND
-    else
-	    chmod 755 $(pwd)/*
-	    # exit 1
-	    echo "INFO ::: ElasticSearch provisioning ::: FINISH - Executing ::: Terraform init."
-	    ##### RUN terraform Apply
-	    echo "INFO ::: ElasticSearch provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
-	    COMMAND="terraform apply -auto-approve"
-	    $COMMAND
-    fi
+#     ##### RUN terraform Apply
+#     echo "INFO ::: ElasticSearch provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
+#     #### Create TFVARS FILE FOR OS Provisioning
+#     echo USE_PRIVATE_IP $USE_PRIVATE_IP
+#     USE_PRIVATE_IP=$(echo $USE_PRIVATE_IP|tr -d '"')
+#     USER_SUBNET_ID=$(echo $USER_SUBNET_ID|tr -d '"')
+#     USER_VPC_ID=$(echo $USER_VPC_ID|tr -d '"')
+#     AWS_REGION=$(echo $AWS_REGION|tr -d '"')
+#     echo USE_PRIVATE_IP $USE_PRIVATE_IP
+#     if [[ "$USE_PRIVATE_IP" = Y ]]; then
+# 	    OS_TFVARS="Os.tfvars"
+# 	    echo "user_subnet_id="\"$USER_SUBNET_ID\" >$OS_TFVARS
+# 	    echo "user_vpc_id="\"$USER_VPC_ID\" >>$OS_TFVARS
+# 	    echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$OS_TFVARS
+# 	    echo "es_region="\"$AWS_REGION\" >>$OS_TFVARS
+# 	    echo "" >>$OS_TFVARS
+# 	    COMMAND="terraform apply -var-file=$OS_TFVARS -auto-approve"
+# 	    $COMMAND
+#     else
+# 	    chmod 755 $(pwd)/*
+# 	    # exit 1
+# 	    echo "INFO ::: ElasticSearch provisioning ::: FINISH - Executing ::: Terraform init."
+# 	    ##### RUN terraform Apply
+# 	    echo "INFO ::: ElasticSearch provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
+# 	    COMMAND="terraform apply -auto-approve"
+# 	    $COMMAND
+#     fi
 
-    if [ $? -eq 0 ]; then
-	    echo "INFO ::: ElasticSearch provisioning ::: FINISH ::: Executing ::: Terraform apply ::: SUCCESS"
-    else
-	    echo "ERROR ::: ElasticSearch provisioning ::: FINISH ::: Executing ::: Terraform apply ::: FAILED "
-	    exit 1
-    fi
-    cd ..
-else
-	echo "INFO ::: ElasticSearch Domain is Active . . . . . . . . . ."
-	echo "INFO ::: BEGIN ::: NAC Provisioning . . . . . . . . . . . ."
-fi
+#     if [ $? -eq 0 ]; then
+# 	    echo "INFO ::: ElasticSearch provisioning ::: FINISH ::: Executing ::: Terraform apply ::: SUCCESS"
+#     else
+# 	    echo "ERROR ::: ElasticSearch provisioning ::: FINISH ::: Executing ::: Terraform apply ::: FAILED "
+# 	    exit 1
+#     fi
+#     cd ..
+# else
+# 	echo "INFO ::: ElasticSearch Domain is Active . . . . . . . . . ."
+# 	echo "INFO ::: BEGIN ::: NAC Provisioning . . . . . . . . . . . ."
+# fi
 
-##################################### END ES Domain ###################################################################
+# ##################################### END ES Domain ###################################################################
 
 ##################################### START TRACKER JSON Creation ###################################################################
 
