@@ -110,125 +110,6 @@ NAC_SCHEDULER_NAME=$(echo "$NAC_SCHEDULER_NAME" | tr -d '"')
 echo NAC_SCHDULER_NAME $NAC_SCHEDULER_NAME
 OS_ADMIIN_SECRET="nasuni-labs-os-admin"
 
-######################## Check If ES Domain Available ###############################################
-# ES_DOMAIN_NAME=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.es_domain_name')
-# echo "INFO ::: ES_DOMAIN NAME : $ES_DOMAIN_NAME"
-# IS_ES="N"
-# if [ "$ES_DOMAIN_NAME" == "" ] || [ "$ES_DOMAIN_NAME" == null ]; then
-# 	echo "ERROR ::: ElasticSearch Domain is Not provided in admin secret"
-# 	IS_ES="N"
-# else
-# 	ES_CREATED=$(aws es describe-elasticsearch-domain --domain-name "${ES_DOMAIN_NAME}" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.DomainStatus.Created')
-# 	if [ $? -eq 0 ]; then
-# 		echo "INFO ::: ES_CREATED : $ES_CREATED"
-# 		ES_PROCESSING=$(aws es describe-elasticsearch-domain --domain-name "${ES_DOMAIN_NAME}" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.DomainStatus.Processing')
-# 		echo "INFO ::: ES_PROCESSING : $ES_PROCESSING"
-# 		ES_UPGRADE_PROCESSING=$(aws es describe-elasticsearch-domain --domain-name "${ES_DOMAIN_NAME}" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.DomainStatus.UpgradeProcessing')
-# 		echo "INFO ::: ES_UPGRADE_PROCESSING : $ES_UPGRADE_PROCESSING"
-
-# 		if [ "$ES_PROCESSING" == "false" ] &&  [ "$ES_UPGRADE_PROCESSING" == "false" ]; then
-# 			echo "INFO ::: ElasticSearch Domain ::: $ES_DOMAIN_NAME is Active"
-# 			IS_ES="Y"
-# 		else
-# 			echo "ERROR ::: ElasticSearch Domain ::: $ES_DOMAIN_NAME is either unavailable Or Not Active"
-# 			IS_ES="N"
-# 		fi
-# 	else
-# 		echo "ERROR ::: ElasticSearch Domain ::: $ES_DOMAIN_NAME not found"
-# 		IS_ES="N"
-# 	fi
-# fi
-
-# if [ "$IS_ES" == "N" ]; then
-# 	echo "INFO ::: ElasticSearch Domain is Not Configured. Need to Provision ElasticSearch Domain Before, NAC Provisioning."
-# 	echo "INFO ::: Begin ElasticSearch Domain Provisioning."
-# 	######################## Check If ES ServiceLink Role Available ###############################################
-# 	ES_ServiceLink_NAME=$(aws iam get-role --role-name AWSServiceRoleForAmazonOpenSearchService --profile "${AWS_PROFILE}" | jq -r '.Role' | jq -r '.RoleName')
-# 	if [ "$ES_ServiceLink_NAME" == "" ] || [ "$ES_ServiceLink_NAME" == null ]; then
-# 		echo "ERROR ::: OpenSearch ServiceLink Role is Not Available, Creating Servicelink Role."
-# 		Create_ServiceLink_NAME=$(aws iam create-service-linked-role --aws-service-name opensearchservice.amazonaws.com --profile "${AWS_PROFILE}")
-# 		if [ "$Create_ServiceLink_NAME" != "" ]; then
-# 			RoleOS=$(echo $Create_ServiceLink_NAME | jq -r '.Role' | jq -r '.RoleName')
-# 			echo "INFO ::: OpenSearch ServiceLink Role Created : $RoleOS"
-# 		fi
-# 	else
-# 		echo "INFO ::: ES_ServiceLink_NAME NAME : $ES_ServiceLink_NAME"
-# 		echo "INFO ::: OpenSearch ServiceLink Role already Available !!!"
-# 	fi
-	#####################################################################################################
-
-
-#    ########## Download ElasticSearch Provisioning Code from GitHub ##########
-#    ### GITHUB_ORGANIZATION defaults to nasuni-labs
-#    REPO_FOLDER="nasuni-awsopensearch"
-#    validate_github $GITHUB_ORGANIZATION $REPO_FOLDER
-#    ########################### Git Clone  ###############################################################
-#    echo "INFO ::: BEGIN - Git Clone !!!"
-#    ### Download Provisioning Code from GitHub
-#    GIT_REPO_NAME=$(echo ${GIT_REPO} | sed 's/.*\/\([^ ]*\/[^.]*\).*/nasuni-\1/' | cut -d "/" -f 2)
-#    echo "INFO ::: $GIT_REPO"
-#    echo "INFO ::: GIT_REPO_NAME $GIT_REPO_NAME"
-#    pwd
-#    ls
-#    echo "INFO ::: Removing ${GIT_REPO_NAME}"
-#    rm -rf "${GIT_REPO_NAME}"
-#    pwd
-#    COMMAND="git clone -b main ${GIT_REPO}"
-#    $COMMAND
-#    RESULT=$?
-#    if [ $RESULT -eq 0 ]; then
-# 	   echo "INFO ::: FINISH ::: GIT clone SUCCESS for repo ::: $GIT_REPO_NAME"
-#    else
-# 	   echo "INFO ::: FINISH ::: GIT Clone FAILED for repo ::: $GIT_REPO_NAME"
-# 	   exit 1
-#    fi
-#    cd "${GIT_REPO_NAME}"
-#    ##### RUN terraform init
-#    echo "INFO ::: ElasticSearch provisioning ::: BEGIN ::: Executing ::: Terraform init . . . . . . . . "
-#    COMMAND="terraform init"
-#    $COMMAND
-
-#     ##### RUN terraform Apply
-#     echo "INFO ::: ElasticSearch provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
-#     #### Create TFVARS FILE FOR OS Provisioning
-#     echo USE_PRIVATE_IP $USE_PRIVATE_IP
-#     USE_PRIVATE_IP=$(echo $USE_PRIVATE_IP|tr -d '"')
-#     USER_SUBNET_ID=$(echo $USER_SUBNET_ID|tr -d '"')
-#     USER_VPC_ID=$(echo $USER_VPC_ID|tr -d '"')
-#     AWS_REGION=$(echo $AWS_REGION|tr -d '"')
-#     echo USE_PRIVATE_IP $USE_PRIVATE_IP
-#     if [[ "$USE_PRIVATE_IP" = Y ]]; then
-# 	    OS_TFVARS="Os.tfvars"
-# 	    echo "user_subnet_id="\"$USER_SUBNET_ID\" >$OS_TFVARS
-# 	    echo "user_vpc_id="\"$USER_VPC_ID\" >>$OS_TFVARS
-# 	    echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$OS_TFVARS
-# 	    echo "es_region="\"$AWS_REGION\" >>$OS_TFVARS
-# 	    echo "" >>$OS_TFVARS
-# 	    COMMAND="terraform apply -var-file=$OS_TFVARS -auto-approve"
-# 	    $COMMAND
-#     else
-# 	    chmod 755 $(pwd)/*
-# 	    # exit 1
-# 	    echo "INFO ::: ElasticSearch provisioning ::: FINISH - Executing ::: Terraform init."
-# 	    ##### RUN terraform Apply
-# 	    echo "INFO ::: ElasticSearch provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
-# 	    COMMAND="terraform apply -auto-approve"
-# 	    $COMMAND
-#     fi
-
-#     if [ $? -eq 0 ]; then
-# 	    echo "INFO ::: ElasticSearch provisioning ::: FINISH ::: Executing ::: Terraform apply ::: SUCCESS"
-#     else
-# 	    echo "ERROR ::: ElasticSearch provisioning ::: FINISH ::: Executing ::: Terraform apply ::: FAILED "
-# 	    exit 1
-#     fi
-#     cd ..
-# else
-# 	echo "INFO ::: ElasticSearch Domain is Active . . . . . . . . . ."
-# 	echo "INFO ::: BEGIN ::: NAC Provisioning . . . . . . . . . . . ."
-# fi
-
-# ##################################### END ES Domain ###################################################################
 
 ##################################### START TRACKER JSON Creation ###################################################################
 
@@ -320,11 +201,14 @@ else
 	echo "ERROR:::Tracker JSON folder Not present"
 fi
 
-echo "LATEST_TOC_HANDLE" $LATEST_TOC_HANDLE
+echo "INFO ::: LATEST_TOC_HANDLE" $LATEST_TOC_HANDLE
 LATEST_TOC_HANDLE_PROCESSED=$LATEST_TOC_HANDLE
 
+FOLDER_PATH=`pwd`
+
 ##appending latest_toc_handle_processed to TFVARS_FILE
-echo "PrevUniFSTOCHandle="\"$LATEST_TOC_HANDLE\" >>$TFVARS_FILE 
+echo "PrevUniFSTOCHandle="\"$LATEST_TOC_HANDLE\" >>$FOLDER_PATH/$TFVARS_FILE
+
 
 ##### RUN terraform init
 echo "INFO ::: NAC provisioning ::: BEGIN - Executing ::: Terraform init."

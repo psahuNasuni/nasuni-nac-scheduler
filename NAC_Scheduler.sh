@@ -685,6 +685,10 @@ if [[ -n "$FOURTH_ARG" ]]; then
 else
 	echo "INFO ::: Fourth argument is NOT provided, So, It will consider prod/nac/admin as the default user secret."
 fi
+######################  NAC Scheduler Instance is Available ##############################
+NAC_SCHEDULER_NAME=""
+### parse_textfile_for_nac_scheduler_name "$FOURTH_ARG"
+parse_4thArgument_for_nac_scheduler_name "$FOURTH_ARG"
 
 ########################Create OS Admin Secret, If its not available ###############
 
@@ -717,10 +721,11 @@ check_if_opensearch_exists $OS_ADMIIN_SECRET $AWS_REGION $AWS_PROFILE $GITHUB_OR
 echo "INFO ::: Get IP Address of NAC Scheduler Instance"
 ######################  NAC Scheduler Instance is Available ##############################
 
-NAC_SCHEDULER_NAME=""
-### parse_textfile_for_nac_scheduler_name "$FOURTH_ARG"
-parse_4thArgument_for_nac_scheduler_name "$FOURTH_ARG"
+# NAC_SCHEDULER_NAME=""
+# ### parse_textfile_for_nac_scheduler_name "$FOURTH_ARG"
+# parse_4thArgument_for_nac_scheduler_name "$FOURTH_ARG"
 echo "INFO ::: nac_scheduler_name = $NAC_SCHEDULER_NAME "
+
 if [ "$NAC_SCHEDULER_NAME" != "" ]; then
 	### User has provided the NACScheduler Name as Key-Value from 4th Argument
 	if [[ "$USE_PRIVATE_IP" != "Y" ]]; then
