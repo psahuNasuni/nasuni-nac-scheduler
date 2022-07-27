@@ -12,14 +12,11 @@ check_if_subnet_exists(){
 	INPUT_VPC="$2"
 	SUBNET_CHECK=`aws ec2 describe-subnets --filters "Name=subnet-id,Values=$INPUT_SUBNET" --region ${AWS_REGION} --profile "${AWS_PROFILE}"`
 	SUBNET=`echo $SUBNET_CHECK | jq -r '.Subnets[].SubnetId'`
-	echo "$SUBNET ***"
 	SUBNET_VPC=`echo $SUBNET_CHECK | jq -r '.Subnets[].VpcId'`
-	# SUBNET_VPC=`aws ec2 describe-subnets --filters "Name=subnet-id,Values=$INPUT_SUBNET" --region ${AWS_REGION} --profile "${AWS_PROFILE}" | jq -r '.Subnets[].VpcId'`
-	echo "$SUBNET_VPC ****"
 	VPC_IS="$SUBNET_VPC"
 	SUBNET_IS="$SUBNET"
 	AZ_IS=`echo $SUBNET_CHECK | jq -r '.Subnets[].AvailabilityZone'`
-	echo "SUBNET_IS=$SUBNET_IS , VPC_IS=$VPC_IS, AZ_IS=$AZ_IS"
+	echo "INFO ::: SUBNET_IS=$SUBNET_IS , VPC_IS=$VPC_IS, AZ_IS=$AZ_IS"
 	if [ "$INPUT_VPC" == "" ] ; then
 		INPUT_VPC=$VPC_IS
 	fi
@@ -35,7 +32,10 @@ check_if_subnet_exists(){
 		echo "INFO ::: Subnet $SUBNET_IS exists in VPC $VPC_IS" 
 	fi
 }
-
+current_folder(){
+CURRENT_FOLDER=`pwd`
+echo "INFO ::: Current Folder: $CURRENT_FOLDER"
+}
 check_if_opensearch_exists(){
 
 	OS_ADMIIN_SECRET="$1"
@@ -47,7 +47,7 @@ check_if_opensearch_exists(){
 	echo "INFO ::: ES_DOMAIN NAME : $ES_DOMAIN_NAME"
 	IS_ES="N"
 	if [ "$ES_DOMAIN_NAME" == "" ] || [ "$ES_DOMAIN_NAME" == null ]; then
-		echo "ERROR ::: ElasticSearch Domain is Not provided in admin secret"
+		echo "INFO ::: Amazon_OpenSearch_Service configuration is Not found in admin secret"
 		IS_ES="N"
 	else
 		ES_CREATED=$(aws es describe-elasticsearch-domain --domain-name "${ES_DOMAIN_NAME}" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.DomainStatus.Created')
@@ -59,21 +59,21 @@ check_if_opensearch_exists(){
 			echo "INFO ::: ES_UPGRADE_PROCESSING : $ES_UPGRADE_PROCESSING"
 
 			if [ "$ES_PROCESSING" == "false" ] &&  [ "$ES_UPGRADE_PROCESSING" == "false" ]; then
-				echo "INFO ::: ElasticSearch Domain ::: $ES_DOMAIN_NAME is Active"
+				echo "INFO ::: Amazon_OpenSearch_Service ::: $ES_DOMAIN_NAME is Active"
 				IS_ES="Y"
 			else
-				echo "ERROR ::: ElasticSearch Domain ::: $ES_DOMAIN_NAME is either unavailable Or Not Active"
+				echo "ERROR ::: Amazon_OpenSearch_Service ::: $ES_DOMAIN_NAME is either unavailable Or Not Active"
 				IS_ES="N"
 			fi
 		else
-			echo "ERROR ::: ElasticSearch Domain ::: $ES_DOMAIN_NAME not found"
+			echo "ERROR ::: Amazon_OpenSearch_Service ::: $ES_DOMAIN_NAME not found"
 			IS_ES="N"
 		fi
 	fi
 
 	if [ "$IS_ES" == "N" ]; then
-		echo "INFO ::: ElasticSearch Domain is Not Configured. Need to Provision ElasticSearch Domain Before, NAC Provisioning."
-		echo "INFO ::: Begin ElasticSearch Domain Provisioning."
+		echo "INFO ::: Amazon_OpenSearch_Service is Not Configured. Need to Provision Amazon_OpenSearch_Service Before, NAC Provisioning."
+		echo "INFO ::: Begin Amazon_OpenSearch_Service Provisioning."
 		######################## Check If ES ServiceLink Role Available ###############################################
 		ES_ServiceLink_NAME=$(aws iam get-role --role-name AWSServiceRoleForAmazonOpenSearchService --profile "${AWS_PROFILE}" | jq -r '.Role' | jq -r '.RoleName')
 		if [ "$ES_ServiceLink_NAME" == "" ] || [ "$ES_ServiceLink_NAME" == null ]; then
@@ -84,11 +84,11 @@ check_if_opensearch_exists(){
 				echo "INFO ::: OpenSearch ServiceLink Role Created : $RoleOS"
 			fi
 		else
-			echo "INFO ::: ES_ServiceLink_NAME NAME : $ES_ServiceLink_NAME"
+			echo "INFO ::: ES_ServiceLink name : $ES_ServiceLink_NAME"
 			echo "INFO ::: OpenSearch ServiceLink Role already Available !!!"
 		fi
 		
-		########## Download ElasticSearch Provisioning Code from GitHub ##########
+		########## Download Amazon_OpenSearch_Service provisioning Code from GitHub ##########
 		### GITHUB_ORGANIZATION defaults to nasuni-labs
 		REPO_FOLDER="nasuni-awsopensearch"
 		validate_github $GITHUB_ORGANIZATION $REPO_FOLDER
@@ -98,11 +98,10 @@ check_if_opensearch_exists(){
 		GIT_REPO_NAME=$(echo ${GIT_REPO} | sed 's/.*\/\([^ ]*\/[^.]*\).*/nasuni-\1/' | cut -d "/" -f 2)
 		echo "INFO ::: $GIT_REPO"
 		echo "INFO ::: GIT_REPO_NAME $GIT_REPO_NAME"
-		pwd
-		ls
+		current_folder
 		echo "INFO ::: Removing ${GIT_REPO_NAME}"
 		rm -rf "${GIT_REPO_NAME}"
-		pwd
+		current_folder
 		COMMAND="git clone -b main ${GIT_REPO}"
 		$COMMAND
 		RESULT=$?
@@ -114,19 +113,20 @@ check_if_opensearch_exists(){
 		fi
 		cd "${GIT_REPO_NAME}"
 		##### RUN terraform init
-		echo "INFO ::: ElasticSearch provisioning ::: BEGIN ::: Executing ::: Terraform init . . . . . . . . "
+		echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: BEGIN ::: Executing ::: Terraform init . . . . . . . . "
 		COMMAND="terraform init"
 		$COMMAND
+		echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: FINISH - Executing ::: Terraform init."
 
 		##### RUN terraform Apply
-		echo "INFO ::: ElasticSearch provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
+		echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: Creating TFVARS File."
 		#### Create TFVARS FILE FOR OS Provisioning
-		echo USE_PRIVATE_IP $USE_PRIVATE_IP
+		# echo "USE_PRIVATE_IP $USE_PRIVATE_IP
 		USE_PRIVATE_IP=$(echo $USE_PRIVATE_IP|tr -d '"')
 		USER_SUBNET_ID=$(echo $USER_SUBNET_ID|tr -d '"')
 		USER_VPC_ID=$(echo $USER_VPC_ID|tr -d '"')
 		AWS_REGION=$(echo $AWS_REGION|tr -d '"')
-		echo USE_PRIVATE_IP $USE_PRIVATE_IP
+		echo "INFO ::: USE_PRIVATE_IP : $USE_PRIVATE_IP "
 		if [[ "$USE_PRIVATE_IP" = Y ]]; then
 			OS_TFVARS="Os.tfvars"
 			echo "user_subnet_id="\"$USER_SUBNET_ID\" >$OS_TFVARS
@@ -134,27 +134,28 @@ check_if_opensearch_exists(){
 			echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$OS_TFVARS
 			echo "es_region="\"$AWS_REGION\" >>$OS_TFVARS
 			echo "" >>$OS_TFVARS
+			echo "INFO ::: TFVARS $OS_TFVARS File created for OpenSearch Provisioning"
+			echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
 			COMMAND="terraform apply -var-file=$OS_TFVARS -auto-approve"
 			$COMMAND
 		else
 			chmod 755 $(pwd)/*
 			# exit 1
-			echo "INFO ::: ElasticSearch provisioning ::: FINISH - Executing ::: Terraform init."
 			##### RUN terraform Apply
-			echo "INFO ::: ElasticSearch provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
+			echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
 			COMMAND="terraform apply -auto-approve"
 			$COMMAND
 		fi
 
 		if [ $? -eq 0 ]; then
-			echo "INFO ::: ElasticSearch provisioning ::: FINISH ::: Executing ::: Terraform apply ::: SUCCESS"
+			echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: FINISH ::: Executing ::: Terraform apply ::: SUCCESS"
 		else
-			echo "ERROR ::: ElasticSearch provisioning ::: FINISH ::: Executing ::: Terraform apply ::: FAILED "
+			echo "ERROR ::: Amazon_OpenSearch_Service provisioning ::: FINISH ::: Executing ::: Terraform apply ::: FAILED "
 			exit 1
 		fi
 		cd ..
 	else
-		echo "INFO ::: ElasticSearch Domain is Active . . . . . . . . . ."
+		echo "INFO ::: Amazon_OpenSearch_Service is Active . . . . . . . . . ."
 		echo "INFO ::: BEGIN ::: NAC Provisioning . . . . . . . . . . . ."
 	fi
 
@@ -231,8 +232,8 @@ nmc_endpoint_accessibility() {
 	echo "INFO ::: NAC_SCHEDULER_IP_ADDR ::: ${NAC_SCHEDULER_IP_ADDR}"
 	# echo "INFO ::: PEM ::: ${PEM}"
 	echo "INFO ::: NMC_API_ENDPOINT ::: ${NMC_API_ENDPOINT}"
-	echo "INFO ::: NMC_API_USERNAME ::: ${NMC_API_USERNAME}"
-	echo "INFO ::: NMC_API_PASSWORD ::: ${NMC_API_PASSWORD}" # 31-37
+	# echo "INFO ::: NMC_API_USERNAME ::: ${NMC_API_USERNAME}"
+	# echo "INFO ::: NMC_API_PASSWORD ::: ${NMC_API_PASSWORD}" # 31-37
 
 	echo "INFO ::: NAC_SCHEDULER_IP_ADDR : "$NAC_SCHEDULER_IP_ADDR
 	py_file_name=$(ls check_nmc_visiblity.py)
@@ -422,12 +423,12 @@ create_JSON_from_Input_user_KVPfile() {
 ###########Adding Local IP to Security Group which is realted to NAC Public IP Address
 add_ip_to_sec_grp() {
 	NAC_SCHEDULER_IP_ADDR=$1
-	echo "INFO ::: Getting Public IP of the local machine."
+	echo "INFO ::: Extracting Public IP of the JumpBox"
 	echo $(curl checkip.amazonaws.com) >LOCAL_IP.txt
 
 	LOCAL_IP=$(cat LOCAL_IP.txt)
 	rm -rf LOCAL_IP.txt
-	echo "INFO ::: Public IP of the local machine is ${LOCAL_IP}"
+	echo "INFO ::: Public IP of the JumpBox machine is ${LOCAL_IP}"
 	NEW_CIDR="${LOCAL_IP}"/32
 	echo "INFO ::: NEW_CIDR :- ${NEW_CIDR}"
 	### Get Security group of NAC Scheduler
@@ -436,7 +437,7 @@ add_ip_to_sec_grp() {
 	echo "INFO ::: Security group of $NAC_SCHEDULER_NAME is $SECURITY_GROUP_ID"
 	status=$(aws ec2 authorize-security-group-ingress --group-id ${SECURITY_GROUP_ID} --profile "${AWS_PROFILE}" --protocol tcp --port 22 --cidr ${NEW_CIDR} 2>/dev/null)
 	if [ $? -eq 0 ]; then
-		echo "INFO ::: Local Computer IP $NEW_CIDR updated to inbound rule of Security Group $SECURITY_GROUP_ID"
+		echo "INFO ::: JumpBox Computer IP $NEW_CIDR updated to inbound rule of Security Group $SECURITY_GROUP_ID"
 	else
 		echo "INFO ::: IP $NEW_CIDR already available in inbound rule of Security Group $SECURITY_GROUP_ID"
 	fi
@@ -455,15 +456,13 @@ validate_aws_profile() {
 	if [[ "$(grep '^[[]profile' <~/.aws/config | awk '{print $2}' | sed 's/]$//' | grep "${AWS_PROFILE}")" == "" ]]; then
 		echo "ERROR ::: AWS profile ${AWS_PROFILE} does not exists. To Create AWS PROFILE, Run cli command - aws configure "
 		exit 1
-	else # AWS Profile nasuni available in local machine
+	else # AWS Profile nasuni available in JumpBox machine
+		echo "INFO ::: AWS profile $AWS_PROFILE exists in JumpBox Computer !!!"
 		AWS_ACCESS_KEY_ID=$(aws configure get aws_access_key_id --profile ${AWS_PROFILE})
 		AWS_SECRET_ACCESS_KEY=$(aws configure get aws_secret_access_key --profile ${AWS_PROFILE})
 		AWS_REGION=`aws configure get region --profile ${AWS_PROFILE}`
+		echo "INFO ::: AWS profile Validation SUCCESS !!!"
 	fi
-
-	echo "INFO ::: AWS_REGION=$AWS_REGION"
-	echo "INFO ::: NMC_VOLUME_NAME=$NMC_VOLUME_NAME"
-	echo "INFO ::: AWS profile Validation SUCCESS !!!"
 }
 ########################## Create CRON ############################################################
 Schedule_CRON_JOB() {
@@ -473,7 +472,7 @@ Schedule_CRON_JOB() {
 
 	chmod 400 $PEM
 
-	echo "INFO ::: Public IP Address:- $NAC_SCHEDULER_IP_ADDR"
+	echo "INFO ::: Scheduling CRON_JOB :: Public IP Address:- $NAC_SCHEDULER_IP_ADDR"
 	echo "ssh -i "$PEM" ubuntu@$NAC_SCHEDULER_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null"
 	### Create TFVARS File for PROVISION_NAC.SH which is Used by CRON JOB - to Provision NAC Stack
 	CRON_DIR_NAME="${NMC_VOLUME_NAME}_${ANALYTICS_SERVICE}"
@@ -486,7 +485,7 @@ Schedule_CRON_JOB() {
 	RND=$(( $RANDOM % 1000000 )); 
 	LAMBDA_LAYER_SUFFIX=$(echo $RND)
 
-	echo "INFO ::: $NEW_NAC_IP which will be added for lambda layer::: "
+	echo "INFO ::: Scheduling CRON_JOB :: $NEW_NAC_IP which will be added for lambda layer::: "
 	echo "aws_profile="\"$AWS_PROFILE\" >>$TFVARS_FILE_NAME
 	echo "region="\"$AWS_REGION\" >>$TFVARS_FILE_NAME
 	echo "volume_name="\"$NMC_VOLUME_NAME\" >>$TFVARS_FILE_NAME
@@ -512,7 +511,7 @@ Schedule_CRON_JOB() {
 		echo "ERROR ::: Failed to Copy create_layer.sh to NAC_Scheduer Instance."
 		exit 1
 	elif [ $RES -eq 0 ]; then
-		echo "INFO :::create_layer.sh Uploaded Successfully to NAC_Scheduer Instance."
+		echo "INFO ::: create_layer.sh Uploaded Successfully to NAC_Scheduer Instance."
 	fi
 	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "dos2unix create_layer.sh" #SSA
 	RES="$?"
@@ -520,20 +519,17 @@ Schedule_CRON_JOB() {
 		echo "ERROR ::: Failed to do dos2unix create_layer.sh to NAC_Scheduer Instance."
 		exit 1
 	elif [ $RES -eq 0 ]; then
-		echo "INFO :::create_layer.sh executed dos2unix Successfully to NAC_Scheduer Instance."
+		echo "INFO ::: create_layer.sh executed dos2unix Successfully to NAC_Scheduer Instance."
 	fi
-	#pass pub_ip to fun SSA
 	#IAM_USER to be defined. et user 
 	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sh create_layer.sh nasuni-labs-os-lambda-layer $AWS_PROFILE $NAC_SCHEDULER_IP_ADDR $AWS_CURRENT_USER $LAMBDA_LAYER_SUFFIX" #SSA
 	RES="$?"
 	if [ $RES -ne 0 ]; then
-		echo "ERROR ::: Failed to execute create_layer.sh to NAC_Scheduer Instance."
+		echo "ERROR ::: Scheduling CRON_JOB :: Failed to execute create_layer.sh to NAC_Scheduer Instance."
 		exit 1
 	elif [ $RES -eq 0 ]; then
-		echo "INFO :::create_layer.sh executed Successfully to NAC_Scheduer Instance."
+		echo "INFO ::: create_layer.sh executed Successfully to NAC_Scheduer Instance."
 	fi
-	# echo "Exiting from "
-	# exit 1
 	### Create Directory for each Volume
 	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $CRON_DIR_NAME ] && mkdir $CRON_DIR_NAME "
 	### Copy TFVARS and provision_nac.sh to NACScheduler
@@ -553,22 +549,22 @@ Schedule_CRON_JOB() {
 	CRON_VOL=$(ssh -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null ubuntu@"$NAC_SCHEDULER_IP_ADDR" "crontab -l |grep /home/ubuntu/$CRON_DIR_NAME/$TFVARS_FILE_NAME")
 	if [ "$CRON_VOL" != "" ]; then
 		### DO Nothing. CRON JOB takes care of NAC Provisioning
-		echo "INFO ::: crontab does not require volume entry.As it is already present.:::::"
+		echo "INFO ::: crontab does not require volume entry. As it is already present.:::::"
 	else
 		### Set up a new CRON JOB for NAC Provisioning
 
 		echo "INFO ::: Setting CRON JOB for $CRON_DIR_NAME as it is not present"
 		ssh -i "$PEM" ubuntu@$NAC_SCHEDULER_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "(crontab -l ; echo '*/$FREQUENCY * * * * cd ~/$CRON_DIR_NAME && /bin/bash provision_nac.sh  ~/$CRON_DIR_NAME/$TFVARS_FILE_NAME >> ~/$CRON_DIR_NAME/CRON_log-$CRON_DIR_NAME-$DATE_WITH_TIME.log 2>&1') | sort - | uniq - | crontab -"
 		if [ $? -eq 0 ]; then
-			echo "INFO ::: CRON JOB Scheduled for NMC VOLUME and Service :: $CRON_DIR_NAME"
+			echo "INFO :::  Scheduling CRON_JOB :: SUCCESS :: for NMC VOLUME and Service :: $CRON_DIR_NAME"
 			exit 0
 		else
-			echo "ERROR ::: FAILED to Schedule CRON JOB for NMC VOLUME and Service :: $CRON_DIR_NAME"
+			echo "ERROR :::  Scheduling CRON_JOB :: FAILED :: for NMC VOLUME and Service :: $CRON_DIR_NAME"
 			exit 1
 		fi
 	fi
-
 }
+
 ##################################### START - SCRIPT Execution HERE ##################################################
 
 if [ $# -eq 0 ]; then
@@ -591,7 +587,7 @@ if [ "${#NMC_VOLUME_NAME}" -lt 3 ]; then
 fi
 if [[ "${#ANALYTICS_SERVICE}" -lt 2 ]]; then
 	echo "INFO ::: The length of Service name provided as 2nd argument is too small, So, It will consider ES as the default Analytics Service."
-	ANALYTICS_SERVICE="ES" # ElasticSearch Service as default
+	ANALYTICS_SERVICE="ES" # Amazon_OpenSearch_Service as default
 fi
 if [[ "${#FREQUENCY}" -lt 2 ]]; then
 	echo "ERROR ::: Mandatory 3rd argument is invalid"
@@ -606,9 +602,6 @@ fi
 
 ### Validate aws_profile
 validate_aws_profile
-
-
-######################## Check If ES Domain Available ###############################################
 
 ########## Check If fourth argument is provided
 USER_SECRET_EXISTS="N"
@@ -788,7 +781,7 @@ else
 	echo "INFO ::: Begin - Git Clone to ${GIT_REPO}"
 	echo "INFO ::: $GIT_REPO"
 	echo "INFO ::: GIT_REPO_NAME - $GIT_REPO_NAME"
-	pwd
+	current_folder
 	# ls
 	rm -rf "${GIT_REPO_NAME}"
 	COMMAND="git clone -b main ${GIT_REPO}"
@@ -810,7 +803,7 @@ else
 	echo "INFO ::: NAC Scheduler EC2 provisioning ::: FINISH - Executing ::: Terraform init."
 	echo "INFO ::: NAC Scheduler EC2 provisioning ::: BEGIN - Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
 	### Create .tfvars file to be used by the NACScheduler Instance Provisioning
-	pwd
+	current_folder
 	TFVARS_NAC_SCHEDULER="NACScheduler.tfvars"
 	rm -rf "$TFVARS_NAC_SCHEDULER" 
     AWS_KEY=$(echo ${PEM_KEY_PATH} | sed 's/.*\/\([^ ]*\/[^.]*\).*/\1/' | cut -d "/" -f 2)
@@ -855,9 +848,9 @@ else
 	ip=$(cat NACScheduler_IP.txt)
 	NAC_SCHEDULER_IP_ADDR=$ip
 	echo 'INFO ::: New pubilc IP just created:-'$ip
-	pwd
+	current_folder
 	cd ../
-	pwd
+	current_folder
 	## Call this function to add Local public IP to Security group of NAC_SCHEDULER IP
 	add_ip_to_sec_grp ${NAC_SCHEDULER_IP_ADDR}
 	## nmc endpoint accessibility $NAC_SCHEDULER_NAME $NAC_SCHEDULER_IP_ADDR
@@ -871,5 +864,5 @@ fi
 END=$(date +%s)
 secs=$((END - START))
 DIFF=$(printf '%02dh:%02dm:%02ds\n' $((secs / 3600)) $((secs % 3600 / 60)) $((secs % 60)))
-echo "INFO ::: Total execution Time ::: $DIFF"
+echo "INFO ::: Total execution Time ::: $DIFF !!!"
 #exit 0
