@@ -134,7 +134,6 @@ check_if_opensearch_exists(){
 			echo "user_vpc_id="\"$USER_VPC_ID\" >>$OS_TFVARS
 			echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$OS_TFVARS
 			echo "es_region="\"$AWS_REGION\" >>$OS_TFVARS
-			echo "git_branch="\"$GIT_BRANCH\" >>$OS_TFVARS
 			echo "" >>$OS_TFVARS
 			echo "INFO ::: TFVARS $OS_TFVARS File created for OpenSearch Provisioning"
 			echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
