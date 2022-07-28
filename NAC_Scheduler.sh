@@ -115,8 +115,8 @@ check_if_opensearch_exists(){
 		cd "${GIT_REPO_NAME}"
 		##### RUN terraform init
 		echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: BEGIN ::: Executing ::: Terraform init . . . . . . . . "
-		# COMMAND="terraform init"
-		# $COMMAND
+		COMMAND="terraform init"
+		$COMMAND
 		echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: FINISH - Executing ::: Terraform init."
 
 		##### RUN terraform Apply
@@ -137,15 +137,15 @@ check_if_opensearch_exists(){
 			echo "" >>$OS_TFVARS
 			echo "INFO ::: TFVARS $OS_TFVARS File created for OpenSearch Provisioning"
 			echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
-			# COMMAND="terraform apply -var-file=$OS_TFVARS -auto-approve"
-			# $COMMAND
+			COMMAND="terraform apply -var-file=$OS_TFVARS -auto-approve"
+			$COMMAND
 		else
 			chmod 755 $(pwd)/*
 			# exit 1
 			##### RUN terraform Apply
 			echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
-			# COMMAND="terraform apply -auto-approve"
-			# $COMMAND
+			COMMAND="terraform apply -auto-approve"
+			$COMMAND
 		fi
 
 		if [ $? -eq 0 ]; then
@@ -813,8 +813,8 @@ else
 	fi
 	### Download Provisioning Code from GitHub completed
 	echo "INFO ::: NAC Scheduler EC2 provisioning ::: BEGIN - Executing ::: Terraform init . . . . . . . . "
-	# COMMAND="terraform init"
-	# $COMMAND
+	COMMAND="terraform init"
+	$COMMAND
 	echo "INFO ::: NAC Scheduler EC2 provisioning ::: FINISH - Executing ::: Terraform init."
 	echo "INFO ::: NAC Scheduler EC2 provisioning ::: BEGIN - Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
 	### Create .tfvars file to be used by the NACScheduler Instance Provisioning
@@ -853,8 +853,8 @@ else
 	echo `cat $TFVARS_NAC_SCHEDULER`
 
 	dos2unix $TFVARS_NAC_SCHEDULER
-	# COMMAND="terraform apply -var-file=$TFVARS_NAC_SCHEDULER -auto-approve"
-	# $COMMAND
+	COMMAND="terraform apply -var-file=$TFVARS_NAC_SCHEDULER -auto-approve"
+	$COMMAND
 	if [ $? -eq 0 ]; then
 		echo "INFO ::: NAC Scheduler EC2 provisioning ::: FINISH - Executing ::: Terraform apply ::: SUCCESS."
 	else
