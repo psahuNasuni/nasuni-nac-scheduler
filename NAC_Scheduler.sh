@@ -70,6 +70,7 @@ check_if_opensearch_exists(){
 			IS_ES="N"
 		fi
 	fi
+	### Create a new Amazon_OpenSearch_Service if IS_ES = N
 
 	if [ "$IS_ES" == "N" ]; then
 		echo "INFO ::: Amazon_OpenSearch_Service is Not Configured. Need to Provision Amazon_OpenSearch_Service Before, NAC Provisioning."
@@ -96,13 +97,13 @@ check_if_opensearch_exists(){
 		echo "INFO ::: BEGIN - Git Clone !!!"
 		### Download Provisioning Code from GitHub
 		GIT_REPO_NAME=$(echo ${GIT_REPO} | sed 's/.*\/\([^ ]*\/[^.]*\).*/nasuni-\1/' | cut -d "/" -f 2)
-		echo "INFO ::: $GIT_REPO"
+		echo "INFO ::: GIT_REPO $GIT_REPO , GIT_BRANCH $GIT_BRANCH"
 		echo "INFO ::: GIT_REPO_NAME $GIT_REPO_NAME"
 		current_folder
 		echo "INFO ::: Removing ${GIT_REPO_NAME}"
 		rm -rf "${GIT_REPO_NAME}"
 		current_folder
-		COMMAND="git clone -b main ${GIT_REPO}"
+		COMMAND="git clone -b $GIT_BRANCH ${GIT_REPO}"
 		$COMMAND
 		RESULT=$?
 		if [ $RESULT -eq 0 ]; then
@@ -114,8 +115,8 @@ check_if_opensearch_exists(){
 		cd "${GIT_REPO_NAME}"
 		##### RUN terraform init
 		echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: BEGIN ::: Executing ::: Terraform init . . . . . . . . "
-		COMMAND="terraform init"
-		$COMMAND
+		# COMMAND="terraform init"
+		# $COMMAND
 		echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: FINISH - Executing ::: Terraform init."
 
 		##### RUN terraform Apply
@@ -136,15 +137,15 @@ check_if_opensearch_exists(){
 			echo "" >>$OS_TFVARS
 			echo "INFO ::: TFVARS $OS_TFVARS File created for OpenSearch Provisioning"
 			echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
-			COMMAND="terraform apply -var-file=$OS_TFVARS -auto-approve"
-			$COMMAND
+			# COMMAND="terraform apply -var-file=$OS_TFVARS -auto-approve"
+			# $COMMAND
 		else
 			chmod 755 $(pwd)/*
 			# exit 1
 			##### RUN terraform Apply
 			echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
-			COMMAND="terraform apply -auto-approve"
-			$COMMAND
+			# COMMAND="terraform apply -auto-approve"
+			# $COMMAND
 		fi
 
 		if [ $? -eq 0 ]; then
@@ -260,6 +261,7 @@ parse_4thArgument_for_nac_scheduler_name() {
 			"user_vpc_id") USER_VPC_ID="$value" ;;
 			"user_subnet_id") USER_SUBNET_ID="$value" ;;
 			"use_private_ip") USE_PRIVATE_IP="$value" ;;
+			"git_branch") GIT_BRANCH="$value" ;;
 			esac
 		done <"$file"
 	else
@@ -275,6 +277,7 @@ parse_4thArgument_for_nac_scheduler_name() {
 		USER_VPC_ID=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.user_vpc_id')
 		USER_SUBNET_ID=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.user_subnet_id')
 		USE_PRIVATE_IP=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.use_private_ip')
+		GIT_BRANCH=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.git_branch')
 		
 		echo "INFO ::: github_organization=$GITHUB_ORGANIZATION :: nac_scheduler_name=$NAC_SCHEDULER_NAME :: nmc_api_username=$NMC_API_USERNAME :: nmc_api_password=$NMC_API_PASSWORD :: nmc_api_endpoint=$NMC_API_ENDPOINT :: pem_key_path=$PEM_KEY_PATH"
 	fi
@@ -284,6 +287,10 @@ parse_4thArgument_for_nac_scheduler_name() {
 	else 
 		echo "INFO ::: Value of github_organization is $GITHUB_ORGANIZATION"	
 	fi
+	if [ "$GIT_BRANCH" == "" ] || [ "$GIT_BRANCH" == "null" ]; then
+		GIT_BRANCH="main"
+	fi
+	echo "INFO ::: Value of git_branch is: $GIT_BRANCH"
 }
 
 append_nac_keys_values_to_tfvars() {
@@ -380,6 +387,7 @@ parse_textfile_for_user_secret_keys_values() {
 		"destination_bucket") DESTINATION_BUCKET="$value" ;;
 		"pem_key_path") PEM_KEY_PATH="$value" ;;
 		"github_organization") GITHUB_ORGANIZATION="$value" ;;
+		"git_branch") GIT_BRANCH="$value" ;;
 		"user_vpc_id") USER_VPC_ID="$value" ;;
 		"user_subnet_id") USER_SUBNET_ID="$value" ;;
 		"use_private_ip") USE_PRIVATE_IP="$value" ;;
@@ -393,6 +401,9 @@ parse_textfile_for_user_secret_keys_values() {
 	fi
 	if [ "$USER_VPC_ID" != "" ]; then
 		echo "INFO ::: Value of user_vpc_id is $USER_VPC_ID"	
+	fi
+	if [ "$GIT_BRANCH" == "" ] || [ "$GIT_BRANCH" == "null" ]; then
+		GIT_BRANCH="main"
 	fi
 	echo "INFO ::: Validating the user data file ${file} and the provided values"
 	validate_kvp nmc_api_username "${NMC_API_USERNAME}"
@@ -491,6 +502,7 @@ Schedule_CRON_JOB() {
 	echo "volume_name="\"$NMC_VOLUME_NAME\" >>$TFVARS_FILE_NAME
 	echo "user_secret="\"$USER_SECRET\" >>$TFVARS_FILE_NAME
 	echo "github_organization="\"$GITHUB_ORGANIZATION\" >>$TFVARS_FILE_NAME
+	echo "git_branch="\"$GIT_BRANCH\" >>$TFVARS_FILE_NAME
 	echo "nac_scheduler_ip_addr="\"$NEW_NAC_IP\" >>$TFVARS_FILE_NAME 
 	echo "aws_current_user="\"$AWS_CURRENT_USER\" >>$TFVARS_FILE_NAME ### Append Current aws user
 	echo "user_vpc_id="\"$USER_VPC_ID\" >>$TFVARS_FILE_NAME
@@ -580,6 +592,8 @@ ANALYTICS_SERVICE="$2" ### 2nd argument  ::: ANALYTICS_SERVICE
 FREQUENCY="$3"         ### 3rd argument  ::: FREQUENCY
 FOURTH_ARG="$4"        ### 4th argument  ::: User Secret a KVP file Or an existing Secret
 NAC_INPUT_KVP="$5"     ### 5th argument  ::: User defined KVP file for passing arguments to NAC
+GIT_BRANCH="main"	   ### Setting Up default Git Branch as "main". For debugging change the value of your branch and execute.
+# GIT_BRANCH="Optimization"
 echo "INFO ::: Validating Arguments Passed to NAC_Scheduler.sh"
 if [ "${#NMC_VOLUME_NAME}" -lt 3 ]; then
 	echo "ERROR ::: Something went wrong. Please re-check 1st argument and provide a valid NMC Volume Name."
@@ -778,14 +792,15 @@ else
 	REPO_FOLDER="nasuni-analyticsconnector-manager"
 	validate_github $GITHUB_ORGANIZATION $REPO_FOLDER 
 	GIT_REPO_NAME=$(echo ${GIT_REPO} | sed 's/.*\/\([^ ]*\/[^.]*\).*/\1/' | cut -d "/" -f 2)
-	echo "INFO ::: Begin - Git Clone to ${GIT_REPO}"
+	echo "INFO ::: Begin - Git Clone to ${GIT_REPO} -b $GIT_BRANCH"
 	echo "INFO ::: $GIT_REPO"
 	echo "INFO ::: GIT_REPO_NAME - $GIT_REPO_NAME"
 	current_folder
 	# ls
 	rm -rf "${GIT_REPO_NAME}"
-	COMMAND="git clone -b main ${GIT_REPO}"
+	COMMAND="git clone -b $GIT_BRANCH ${GIT_REPO}"
 	$COMMAND
+	exit 88888
 	RESULT=$?
 	if [ $RESULT -eq 0 ]; then
 		echo "INFO ::: git clone SUCCESS for repo ::: $GIT_REPO_NAME"
@@ -793,13 +808,13 @@ else
 	elif [ $RESULT -eq 128 ]; then
 		cd "${GIT_REPO_NAME}"
 		echo "$GIT_REPO_NAME"
-		COMMAND="git pull origin main"
+		COMMAND="git pull origin $GIT_BRANCH"
 		$COMMAND
 	fi
 	### Download Provisioning Code from GitHub completed
 	echo "INFO ::: NAC Scheduler EC2 provisioning ::: BEGIN - Executing ::: Terraform init . . . . . . . . "
-	COMMAND="terraform init"
-	$COMMAND
+	# COMMAND="terraform init"
+	# $COMMAND
 	echo "INFO ::: NAC Scheduler EC2 provisioning ::: FINISH - Executing ::: Terraform init."
 	echo "INFO ::: NAC Scheduler EC2 provisioning ::: BEGIN - Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
 	### Create .tfvars file to be used by the NACScheduler Instance Provisioning
@@ -821,6 +836,7 @@ else
 		echo "aws_key="\"$AWS_KEY\" >>$TFVARS_NAC_SCHEDULER
 	fi
 	echo "github_organization="\"$GITHUB_ORGANIZATION\" >>$TFVARS_NAC_SCHEDULER
+	echo "git_branch="\"$GIT_BRANCH\" >>$TFVARS_NAC_SCHEDULER
 	if [[ "$VPC_IS" != "" ]]; then
 		echo "user_vpc_id="\"$VPC_IS\" >>$TFVARS_NAC_SCHEDULER
 	fi
@@ -837,8 +853,8 @@ else
 	echo `cat $TFVARS_NAC_SCHEDULER`
 
 	dos2unix $TFVARS_NAC_SCHEDULER
-	COMMAND="terraform apply -var-file=$TFVARS_NAC_SCHEDULER -auto-approve"
-	$COMMAND
+	# COMMAND="terraform apply -var-file=$TFVARS_NAC_SCHEDULER -auto-approve"
+	# $COMMAND
 	if [ $? -eq 0 ]; then
 		echo "INFO ::: NAC Scheduler EC2 provisioning ::: FINISH - Executing ::: Terraform apply ::: SUCCESS."
 	else
