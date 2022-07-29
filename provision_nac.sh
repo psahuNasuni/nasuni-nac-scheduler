@@ -39,6 +39,7 @@ START=$(date +%s)
 				"use_private_ip") USE_PRIVATE_IP="$value" ;;
 				"frequency") FREQUENCY="$value" ;;
 				"nac_scheduler_name") NAC_SCHEDULER_NAME="$value" ;;
+				"nac_es_securitygroup") NAC_ES_SECURITYGROUP="$value" ;;
 			esac
 		done < "$file"
 	}
@@ -109,6 +110,7 @@ NMC_VOLUME_NAME=$(echo "$NMC_VOLUME_NAME" | tr -d '"')
 GIT_BRANCH=$(echo "$GIT_BRANCH" | tr -d '"')
 GITHUB_ORGANIZATION=$(echo "$GITHUB_ORGANIZATION" | tr -d '"')
 NAC_SCHEDULER_NAME=$(echo "$NAC_SCHEDULER_NAME" | tr -d '"')
+NAC_ES_SECURITYGROUP=$(echo "$NAC_ES_SECURITYGROUP" | tr -d '"')
 echo NAC_SCHDULER_NAME $NAC_SCHEDULER_NAME
 OS_ADMIIN_SECRET="nasuni-labs-os-admin"
 
