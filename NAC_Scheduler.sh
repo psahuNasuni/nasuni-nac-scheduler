@@ -15,7 +15,7 @@ add_Rules_To_SecurityGroup() {
     PROFILE="$4"
     REGION="$5"
     echo "INFO ::: Updating Security Rule to allow inbound traffic from port $PORT"
-    aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port $PORT --cidr $CIDR --profile $PROFILE --region $REGION
+    aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port $PORT --cidr $CIDR --profile $PROFILE --region $REGION  2> /dev/null
     if [[ $? -ne 0 ]]; then
         echo "INFO ::: Security Rule to allow inbound traffic from port $PORT already Exist !!!"
     else
@@ -763,7 +763,7 @@ if [ "$OS_ADMIIN_SECRET_EXISTS" == "N" ]; then
 fi
 ######################## Check If NAC_ES_Security Available ###############################################
 NAC_ES_SECURITYGROUP=""
-Create_NAC_ES_SecurityGroup $VPC_ID $PROFILE $REGION
+Create_NAC_ES_SecurityGroup ${USER_VPC_ID} ${AWS_PROFILE} ${AWS_REGION}
 echo "INFO ::: NAC_ES_SecurityGroup :: $NAC_ES_SECURITYGROUP"
 
 ######################## Check If ES Domain Available ###############################################
