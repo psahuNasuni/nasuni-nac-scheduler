@@ -30,7 +30,7 @@ Create_NAC_ES_SecurityGroup() {
     CIDR=$(aws ec2 describe-vpcs --profile $PROFILE --region $REGION | jq -r '.Vpcs[]|select(.VpcId == '\"$VPC_ID\"')|{CidrBlock}' | jq -r '.CidrBlock')
     echo "CIDR: $CIDR"
 
-    CHECK_SG=$(aws ec2 describe-security-groups --filters Name=group-name,Values=*nasuni-labs-$REGION* --query "SecurityGroups[*].{Name:GroupName,ID:GroupId}" --profile $PROFILE --region $REGION | jq -r '.[].ID')
+    CHECK_SG=$(aws ec2 describe-security-groups --filters Name=group-name,Values=*nasuni-labs-SG-$REGION* --query "SecurityGroups[*].{Name:GroupName,ID:GroupId}" --profile $PROFILE --region $REGION | jq -r '.[].ID')
     if [[ $CHECK_SG == "" ]] || [[ $CHECK_SG == "null" ]]; then
         echo "INFO ::: Security Group Does Not Exist !!!"
 
