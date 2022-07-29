@@ -41,7 +41,7 @@ Create_NAC_ES_SecurityGroup() {
         SG_ID="$CHECK_SG"
         echo "INFO ::: Security Group $SG_ID Already Exists !!!"
     fi
-	NAC_ES_SECURITYGROUP="$SG_ID"
+	NAC_ES_SECURITYGROUP_ID="$SG_ID"
     add_Rules_To_SecurityGroup $SG_ID 22 $CIDR $PROFILE $REGION
     add_Rules_To_SecurityGroup $SG_ID 80 $CIDR $PROFILE $REGION
     add_Rules_To_SecurityGroup $SG_ID 443 $CIDR $PROFILE $REGION
@@ -178,7 +178,7 @@ check_if_opensearch_exists(){
 			echo "user_vpc_id="\"$USER_VPC_ID\" >>$OS_TFVARS
 			echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$OS_TFVARS
 			echo "es_region="\"$AWS_REGION\" >>$OS_TFVARS
-			echo "nac_es_securitygroup="\"$NAC_ES_SECURITYGROUP\" >>$OS_TFVARS
+			echo "nac_es_securitygroup_id="\"$NAC_ES_SECURITYGROUP_ID\" >>$OS_TFVARS
 			echo "" >>$OS_TFVARS
 			echo "INFO ::: TFVARS $OS_TFVARS File created for OpenSearch Provisioning"
 			echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
@@ -548,7 +548,7 @@ Schedule_CRON_JOB() {
 	echo "lambda_layer_suffix="\"$LAMBDA_LAYER_SUFFIX\" >>$TFVARS_FILE_NAME
 	echo "frequency="\"$FREQUENCY\" >>$TFVARS_FILE_NAME
 	echo "nac_scheduler_name="\"$NAC_SCHEDULER_NAME\" >>$TFVARS_FILE_NAME
-	echo "nac_es_securitygroup="\"$NAC_ES_SECURITYGROUP\" >>$TFVARS_FILE_NAME
+	echo "nac_es_securitygroup_id="\"$NAC_ES_SECURITYGROUP_ID\" >>$TFVARS_FILE_NAME
 	if [[ "$USE_PRIVATE_IP" == "Y" ]]; then
 		echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$TFVARS_FILE_NAME
 	fi
@@ -762,12 +762,12 @@ if [ "$OS_ADMIIN_SECRET_EXISTS" == "N" ]; then
 			echo "INFO ::: Secret $OS_ADMIIN_SECRET Already Exists"
 fi
 ######################## Check If NAC_ES_Security Available ###############################################
-NAC_ES_SECURITYGROUP=""
+NAC_ES_SECURITYGROUP_ID=""
 Create_NAC_ES_SecurityGroup ${USER_VPC_ID} ${AWS_PROFILE} ${AWS_REGION}
-echo "INFO ::: NAC_ES_SecurityGroup :: $NAC_ES_SECURITYGROUP"
+echo "INFO ::: NAC_ES_SecurityGroup :: $NAC_ES_SECURITYGROUP_ID"
 
 ######################## Check If ES Domain Available ###############################################
-check_if_opensearch_exists $OS_ADMIIN_SECRET $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $NAC_ES_SECURITYGROUP
+check_if_opensearch_exists $OS_ADMIIN_SECRET $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $NAC_ES_SECURITYGROUP_ID
 
 echo "INFO ::: Get IP Address of NAC Scheduler Instance"
 ######################  NAC Scheduler Instance is Available ##############################
@@ -873,7 +873,7 @@ else
 	chmod 400 $PEM
 	echo "aws_profile="\"$AWS_PROFILE\" >>$TFVARS_NAC_SCHEDULER
 	echo "region="\"$AWS_REGION\" >>$TFVARS_NAC_SCHEDULER
-	echo "nac_es_securitygroup="\"$NAC_ES_SECURITYGROUP\" >>$TFVARS_NAC_SCHEDULER
+	echo "nac_es_securitygroup_id="\"$NAC_ES_SECURITYGROUP_ID\" >>$TFVARS_NAC_SCHEDULER
 	if [[ "$NAC_SCHEDULER_NAME" != "" ]]; then
 		echo "nac_scheduler_name="\"$NAC_SCHEDULER_NAME\" >>$TFVARS_NAC_SCHEDULER
 		### Create entries about the Pem Key in the TFVARS File
