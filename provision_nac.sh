@@ -33,11 +33,13 @@ START=$(date +%s)
 				"region") AWS_REGION="$value" ;;
 				"volume_name") NMC_VOLUME_NAME="$value" ;;
 				"github_organization") GITHUB_ORGANIZATION="$value" ;;
+				"git_branch") GIT_BRANCH="$value" ;;
 				"user_vpc_id") USER_VPC_ID="$value" ;;
 				"user_subnet_id") USER_SUBNET_ID="$value" ;;
 				"use_private_ip") USE_PRIVATE_IP="$value" ;;
 				"frequency") FREQUENCY="$value" ;;
 				"nac_scheduler_name") NAC_SCHEDULER_NAME="$value" ;;
+				"nac_es_securitygroup") NAC_ES_SECURITYGROUP="$value" ;;
 			esac
 		done < "$file"
 	}
@@ -105,8 +107,10 @@ read_TFVARS "$TFVARS_FILE"
 AWS_PROFILE=$(echo "$AWS_PROFILE" | tr -d '"')
 AWS_REGION=$(echo "$AWS_REGION" | tr -d '"')
 NMC_VOLUME_NAME=$(echo "$NMC_VOLUME_NAME" | tr -d '"')
+GIT_BRANCH=$(echo "$GIT_BRANCH" | tr -d '"')
 GITHUB_ORGANIZATION=$(echo "$GITHUB_ORGANIZATION" | tr -d '"')
 NAC_SCHEDULER_NAME=$(echo "$NAC_SCHEDULER_NAME" | tr -d '"')
+NAC_ES_SECURITYGROUP=$(echo "$NAC_ES_SECURITYGROUP" | tr -d '"')
 echo NAC_SCHDULER_NAME $NAC_SCHEDULER_NAME
 OS_ADMIIN_SECRET="nasuni-labs-os-admin"
 
@@ -159,7 +163,7 @@ ls
 echo "INFO ::: Deleting the Directory: ${GIT_REPO_NAME}"
 rm -rf "${GIT_REPO_NAME}"
 pwd
-COMMAND="git clone -b main ${GIT_REPO}"
+COMMAND="git clone -b $GIT_BRANCH $GIT_REPO"
 $COMMAND
 RESULT=$?
 if [ $RESULT -eq 0 ]; then

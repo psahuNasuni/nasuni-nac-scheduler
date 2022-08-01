@@ -7,6 +7,47 @@
 ##############################################
 DATE_WITH_TIME=$(date "+%Y%m%d-%H%M%S")
 START=$(date +%s)
+
+add_Rules_To_SecurityGroup() {
+    SG_ID="$1"
+    PORT="$2"
+    CIDR="$3"
+    PROFILE="$4"
+    REGION="$5"
+    echo "INFO ::: Updating Security Rule to allow inbound traffic from port $PORT"
+    aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port $PORT --cidr $CIDR --profile $PROFILE --region $REGION  2> /dev/null
+    if [[ $? -ne 0 ]]; then
+        echo "INFO ::: Security Rule to allow inbound traffic from port $PORT already Exist !!!"
+    else
+        echo "INFO ::: Security Rule Updated Successfully for port $PORT"
+    fi
+}
+
+Create_NAC_ES_SecurityGroup() {
+    VPC_ID="$1"
+    PROFILE="$2"
+    REGION="$3"
+    CIDR=$(aws ec2 describe-vpcs --profile $PROFILE --region $REGION | jq -r '.Vpcs[]|select(.VpcId == '\"$VPC_ID\"')|{CidrBlock}' | jq -r '.CidrBlock')
+    echo "CIDR: $CIDR"
+
+    CHECK_SG=$(aws ec2 describe-security-groups --filters Name=group-name,Values=*nasuni-labs-SG-$REGION* --query "SecurityGroups[*].{Name:GroupName,ID:GroupId}" --profile $PROFILE --region $REGION | jq -r '.[].ID')
+    if [[ $CHECK_SG == "" ]] || [[ $CHECK_SG == "null" ]]; then
+        echo "INFO ::: Security Group Does Not Exist !!!"
+
+        CREATE_SG=$(aws ec2 create-security-group --group-name "nasuni-222labs-$REGION" --description "NAC-ES Infrastructure security group" --profile $PROFILE --region $REGION)
+        SG_ID=$(echo $CREATE_SG | jq -r '.GroupId')
+        echo "INFO ::: New Security Group Created with ID = $SG_ID"
+    else
+        SG_ID="$CHECK_SG"
+        echo "INFO ::: Security Group $SG_ID Already Exists !!!"
+    fi
+	NAC_ES_SECURITYGROUP_ID="$SG_ID"
+    add_Rules_To_SecurityGroup $SG_ID 22 $CIDR $PROFILE $REGION
+    add_Rules_To_SecurityGroup $SG_ID 80 $CIDR $PROFILE $REGION
+    add_Rules_To_SecurityGroup $SG_ID 443 $CIDR $PROFILE $REGION
+    add_Rules_To_SecurityGroup $SG_ID 8080 $CIDR $PROFILE $REGION
+}
+
 check_if_subnet_exists(){
 	INPUT_SUBNET="$1"
 	INPUT_VPC="$2"
@@ -36,12 +77,14 @@ current_folder(){
 CURRENT_FOLDER=`pwd`
 echo "INFO ::: Current Folder: $CURRENT_FOLDER"
 }
+
 check_if_opensearch_exists(){
 
 	OS_ADMIIN_SECRET="$1"
 	AWS_REGION="$2"
 	AWS_PROFILE="$3"
 	GITHUB_ORGANIZATION="$4"
+
 	######################## Check If ES Domain Available ###############################################
 	ES_DOMAIN_NAME=$(aws secretsmanager get-secret-value --secret-id "${OS_ADMIIN_SECRET}" --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.es_domain_name')
 	echo "INFO ::: ES_DOMAIN NAME : $ES_DOMAIN_NAME"
@@ -71,6 +114,8 @@ check_if_opensearch_exists(){
 		fi
 	fi
 
+	### Create a new Amazon_OpenSearch_Service if IS_ES = N
+	
 	if [ "$IS_ES" == "N" ]; then
 		echo "INFO ::: Amazon_OpenSearch_Service is Not Configured. Need to Provision Amazon_OpenSearch_Service Before, NAC Provisioning."
 		echo "INFO ::: Begin Amazon_OpenSearch_Service Provisioning."
@@ -96,13 +141,13 @@ check_if_opensearch_exists(){
 		echo "INFO ::: BEGIN - Git Clone !!!"
 		### Download Provisioning Code from GitHub
 		GIT_REPO_NAME=$(echo ${GIT_REPO} | sed 's/.*\/\([^ ]*\/[^.]*\).*/nasuni-\1/' | cut -d "/" -f 2)
-		echo "INFO ::: $GIT_REPO"
+		echo "INFO ::: GIT_REPO $GIT_REPO , GIT_BRANCH $GIT_BRANCH"
 		echo "INFO ::: GIT_REPO_NAME $GIT_REPO_NAME"
 		current_folder
 		echo "INFO ::: Removing ${GIT_REPO_NAME}"
 		rm -rf "${GIT_REPO_NAME}"
 		current_folder
-		COMMAND="git clone -b main ${GIT_REPO}"
+		COMMAND="git clone -b $GIT_BRANCH ${GIT_REPO}"
 		$COMMAND
 		RESULT=$?
 		if [ $RESULT -eq 0 ]; then
@@ -133,6 +178,7 @@ check_if_opensearch_exists(){
 			echo "user_vpc_id="\"$USER_VPC_ID\" >>$OS_TFVARS
 			echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$OS_TFVARS
 			echo "es_region="\"$AWS_REGION\" >>$OS_TFVARS
+			echo "nac_es_securitygroup_id="\"$NAC_ES_SECURITYGROUP_ID\" >>$OS_TFVARS
 			echo "" >>$OS_TFVARS
 			echo "INFO ::: TFVARS $OS_TFVARS File created for OpenSearch Provisioning"
 			echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
@@ -163,12 +209,9 @@ check_if_opensearch_exists(){
 		
 }
 
-
 check_if_vpc_exists(){
 INPUT_VPC="$1"
 
-# VPCS=`aws ec2 describe-vpcs | jq -r '.Vpcs[].VpcId'`
-# VPC_CHECK=`aws ec2 describe-vpcs --filters "Name=vpc-id,Values=$INPUT_VPC" --region ${AWS_REGION} --profile "${AWS_PROFILE}" | jq -r '.Vpcs[].VpcId'`
 VPC_CHECK=`aws ec2 describe-vpcs --filters "Name=vpc-id,Values=$INPUT_VPC" --region ${AWS_REGION} --profile "${AWS_PROFILE}" | jq -r '.Vpcs[].VpcId'`
 echo "$?"
 VPC_0_SUBNET=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$INPUT_VPC" --region ${AWS_REGION} --profile "${AWS_PROFILE}" | jq -r '.Subnets[0].SubnetId')
@@ -227,14 +270,10 @@ nmc_endpoint_accessibility() {
 	chmod 400 $PEM
 	### nac_scheduler_name = from FourthArgument of NAC_Scheduler.sh, user_sec.txt
 	### parse_textfile_for_user_secret_keys_values user_sec.txt
-	# echo "INFO ::: Inside nmc_endpoint_accessibility"
 	echo "INFO ::: NAC_SCHEDULER_NAME ::: ${NAC_SCHEDULER_NAME}"
 	echo "INFO ::: NAC_SCHEDULER_IP_ADDR ::: ${NAC_SCHEDULER_IP_ADDR}"
-	# echo "INFO ::: PEM ::: ${PEM}"
 	echo "INFO ::: NMC_API_ENDPOINT ::: ${NMC_API_ENDPOINT}"
-	# echo "INFO ::: NMC_API_USERNAME ::: ${NMC_API_USERNAME}"
-	# echo "INFO ::: NMC_API_PASSWORD ::: ${NMC_API_PASSWORD}" # 31-37
-
+	
 	echo "INFO ::: NAC_SCHEDULER_IP_ADDR : "$NAC_SCHEDULER_IP_ADDR
 	py_file_name=$(ls check_nmc_visiblity.py)
 	echo "INFO ::: Executing Python code file : "$py_file_name
@@ -260,6 +299,7 @@ parse_4thArgument_for_nac_scheduler_name() {
 			"user_vpc_id") USER_VPC_ID="$value" ;;
 			"user_subnet_id") USER_SUBNET_ID="$value" ;;
 			"use_private_ip") USE_PRIVATE_IP="$value" ;;
+			"git_branch") GIT_BRANCH="$value" ;;
 			esac
 		done <"$file"
 	else
@@ -275,6 +315,7 @@ parse_4thArgument_for_nac_scheduler_name() {
 		USER_VPC_ID=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.user_vpc_id')
 		USER_SUBNET_ID=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.user_subnet_id')
 		USE_PRIVATE_IP=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.use_private_ip')
+		GIT_BRANCH=$(echo $SECRET_STRING  | jq -r '.SecretString' | jq -r '.git_branch')
 		
 		echo "INFO ::: github_organization=$GITHUB_ORGANIZATION :: nac_scheduler_name=$NAC_SCHEDULER_NAME :: nmc_api_username=$NMC_API_USERNAME :: nmc_api_password=$NMC_API_PASSWORD :: nmc_api_endpoint=$NMC_API_ENDPOINT :: pem_key_path=$PEM_KEY_PATH"
 	fi
@@ -284,6 +325,10 @@ parse_4thArgument_for_nac_scheduler_name() {
 	else 
 		echo "INFO ::: Value of github_organization is $GITHUB_ORGANIZATION"	
 	fi
+	if [ "$GIT_BRANCH" == "" ] || [ "$GIT_BRANCH" == "null" ]; then
+		GIT_BRANCH="main"
+	fi
+	echo "INFO ::: Value of git_branch is: $GIT_BRANCH"
 }
 
 append_nac_keys_values_to_tfvars() {
@@ -380,6 +425,7 @@ parse_textfile_for_user_secret_keys_values() {
 		"destination_bucket") DESTINATION_BUCKET="$value" ;;
 		"pem_key_path") PEM_KEY_PATH="$value" ;;
 		"github_organization") GITHUB_ORGANIZATION="$value" ;;
+		"git_branch") GIT_BRANCH="$value" ;;
 		"user_vpc_id") USER_VPC_ID="$value" ;;
 		"user_subnet_id") USER_SUBNET_ID="$value" ;;
 		"use_private_ip") USE_PRIVATE_IP="$value" ;;
@@ -393,6 +439,9 @@ parse_textfile_for_user_secret_keys_values() {
 	fi
 	if [ "$USER_VPC_ID" != "" ]; then
 		echo "INFO ::: Value of user_vpc_id is $USER_VPC_ID"	
+	fi
+	if [ "$GIT_BRANCH" == "" ] || [ "$GIT_BRANCH" == "null" ]; then
+		GIT_BRANCH="main"
 	fi
 	echo "INFO ::: Validating the user data file ${file} and the provided values"
 	validate_kvp nmc_api_username "${NMC_API_USERNAME}"
@@ -491,6 +540,7 @@ Schedule_CRON_JOB() {
 	echo "volume_name="\"$NMC_VOLUME_NAME\" >>$TFVARS_FILE_NAME
 	echo "user_secret="\"$USER_SECRET\" >>$TFVARS_FILE_NAME
 	echo "github_organization="\"$GITHUB_ORGANIZATION\" >>$TFVARS_FILE_NAME
+	echo "git_branch="\"$GIT_BRANCH\" >>$TFVARS_FILE_NAME
 	echo "nac_scheduler_ip_addr="\"$NEW_NAC_IP\" >>$TFVARS_FILE_NAME 
 	echo "aws_current_user="\"$AWS_CURRENT_USER\" >>$TFVARS_FILE_NAME ### Append Current aws user
 	echo "user_vpc_id="\"$USER_VPC_ID\" >>$TFVARS_FILE_NAME
@@ -498,6 +548,7 @@ Schedule_CRON_JOB() {
 	echo "lambda_layer_suffix="\"$LAMBDA_LAYER_SUFFIX\" >>$TFVARS_FILE_NAME
 	echo "frequency="\"$FREQUENCY\" >>$TFVARS_FILE_NAME
 	echo "nac_scheduler_name="\"$NAC_SCHEDULER_NAME\" >>$TFVARS_FILE_NAME
+	echo "nac_es_securitygroup_id="\"$NAC_ES_SECURITYGROUP_ID\" >>$TFVARS_FILE_NAME
 	if [[ "$USE_PRIVATE_IP" == "Y" ]]; then
 		echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$TFVARS_FILE_NAME
 	fi
@@ -580,6 +631,8 @@ ANALYTICS_SERVICE="$2" ### 2nd argument  ::: ANALYTICS_SERVICE
 FREQUENCY="$3"         ### 3rd argument  ::: FREQUENCY
 FOURTH_ARG="$4"        ### 4th argument  ::: User Secret a KVP file Or an existing Secret
 NAC_INPUT_KVP="$5"     ### 5th argument  ::: User defined KVP file for passing arguments to NAC
+GIT_BRANCH="main"	   ### Setting Up default Git Branch as "main". For debugging change the value of your branch and execute.
+# GIT_BRANCH="Optimization"
 echo "INFO ::: Validating Arguments Passed to NAC_Scheduler.sh"
 if [ "${#NMC_VOLUME_NAME}" -lt 3 ]; then
 	echo "ERROR ::: Something went wrong. Please re-check 1st argument and provide a valid NMC Volume Name."
@@ -708,8 +761,13 @@ if [ "$OS_ADMIIN_SECRET_EXISTS" == "N" ]; then
 		else
 			echo "INFO ::: Secret $OS_ADMIIN_SECRET Already Exists"
 fi
+######################## Check If NAC_ES_Security Available ###############################################
+NAC_ES_SECURITYGROUP_ID=""
+Create_NAC_ES_SecurityGroup ${USER_VPC_ID} ${AWS_PROFILE} ${AWS_REGION}
+echo "INFO ::: NAC_ES_SecurityGroup :: $NAC_ES_SECURITYGROUP_ID"
+
 ######################## Check If ES Domain Available ###############################################
-check_if_opensearch_exists $OS_ADMIIN_SECRET $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION
+check_if_opensearch_exists $OS_ADMIIN_SECRET $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $NAC_ES_SECURITYGROUP_ID
 
 echo "INFO ::: Get IP Address of NAC Scheduler Instance"
 ######################  NAC Scheduler Instance is Available ##############################
@@ -778,14 +836,15 @@ else
 	REPO_FOLDER="nasuni-analyticsconnector-manager"
 	validate_github $GITHUB_ORGANIZATION $REPO_FOLDER 
 	GIT_REPO_NAME=$(echo ${GIT_REPO} | sed 's/.*\/\([^ ]*\/[^.]*\).*/\1/' | cut -d "/" -f 2)
-	echo "INFO ::: Begin - Git Clone to ${GIT_REPO}"
+	echo "INFO ::: Begin - Git Clone to ${GIT_REPO} -b $GIT_BRANCH"
 	echo "INFO ::: $GIT_REPO"
 	echo "INFO ::: GIT_REPO_NAME - $GIT_REPO_NAME"
 	current_folder
 	# ls
 	rm -rf "${GIT_REPO_NAME}"
-	COMMAND="git clone -b main ${GIT_REPO}"
+	COMMAND="git clone -b $GIT_BRANCH ${GIT_REPO}"
 	$COMMAND
+	# exit 88888
 	RESULT=$?
 	if [ $RESULT -eq 0 ]; then
 		echo "INFO ::: git clone SUCCESS for repo ::: $GIT_REPO_NAME"
@@ -793,7 +852,7 @@ else
 	elif [ $RESULT -eq 128 ]; then
 		cd "${GIT_REPO_NAME}"
 		echo "$GIT_REPO_NAME"
-		COMMAND="git pull origin main"
+		COMMAND="git pull origin $GIT_BRANCH"
 		$COMMAND
 	fi
 	### Download Provisioning Code from GitHub completed
@@ -814,6 +873,7 @@ else
 	chmod 400 $PEM
 	echo "aws_profile="\"$AWS_PROFILE\" >>$TFVARS_NAC_SCHEDULER
 	echo "region="\"$AWS_REGION\" >>$TFVARS_NAC_SCHEDULER
+	echo "nac_es_securitygroup_id="\"$NAC_ES_SECURITYGROUP_ID\" >>$TFVARS_NAC_SCHEDULER
 	if [[ "$NAC_SCHEDULER_NAME" != "" ]]; then
 		echo "nac_scheduler_name="\"$NAC_SCHEDULER_NAME\" >>$TFVARS_NAC_SCHEDULER
 		### Create entries about the Pem Key in the TFVARS File
@@ -821,6 +881,7 @@ else
 		echo "aws_key="\"$AWS_KEY\" >>$TFVARS_NAC_SCHEDULER
 	fi
 	echo "github_organization="\"$GITHUB_ORGANIZATION\" >>$TFVARS_NAC_SCHEDULER
+	echo "git_branch="\"$GIT_BRANCH\" >>$TFVARS_NAC_SCHEDULER
 	if [[ "$VPC_IS" != "" ]]; then
 		echo "user_vpc_id="\"$VPC_IS\" >>$TFVARS_NAC_SCHEDULER
 	fi
