@@ -34,7 +34,7 @@ Create_NAC_ES_SecurityGroup() {
     if [[ $CHECK_SG == "" ]] || [[ $CHECK_SG == "null" ]]; then
         echo "INFO ::: Security Group Does Not Exist !!!"
 
-        CREATE_SG=$(aws ec2 create-security-group --group-name "nasuni-222labs-$REGION" --description "NAC-ES Infrastructure security group" --profile $PROFILE --region $REGION)
+        CREATE_SG=$(aws ec2 create-security-group --group-name "nasuni-labs-SG-$REGION" --description "NAC-ES Infrastructure security group" --profile $PROFILE --region $REGION)
         SG_ID=$(echo $CREATE_SG | jq -r '.GroupId')
         echo "INFO ::: New Security Group Created with ID = $SG_ID"
     else
