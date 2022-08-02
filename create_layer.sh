@@ -2,24 +2,27 @@
 ####./creater_layer.sh elasticsearch my-layer
 ####./creater_layer.sh my-layer nasuni
 path="app"
-LAYER_NAME="$1"
-AWS_PROFILE="$2"
-NAC_IP="$3"
-AWS_CURRENT_USER="$4"
-LAMBDA_LAYER_SUFFIX="$5"
+LAYER_NAME="nasuni-labs-os-lambda-layer"
+AWS_PROFILE="$1"
+NACSCHEDULER_UID="$2"
+
 
 echo "INFO ::: LAYER_NAME ::: $LAYER_NAME"
 echo "INFO ::: AWS_PROFILE ::: $AWS_PROFILE"
-echo "INFO ::: NAC_IP ::: $NAC_IP"
-echo "INFO ::: AWS_CURRENT_USER ::: $AWS_CURRENT_USER"
-NEW_NAC_IP=$(echo $NAC_IP | tr '.' '-')
-LAMBDA_LAYER_NAME=$(echo $LAYER_NAME-$LAMBDA_LAYER_SUFFIX)
+echo "INFO ::: NACSCHEDULER_UID ::: $NACSCHEDULER_UID"
+# NEW_NACSCHEDULER_UID=$(echo $NAC_IP | tr '.' '-')
+# LAMBDA_LAYER_NAME=$(echo $LAYER_NAME-${NACSCHEDULER_UID^^})
+LAMBDA_LAYER_NAME=$(echo $LAYER_NAME-${NACSCHEDULER_UID})
+echo echo "INFO ::: LAMBDA_LAYER_NAME ::: $LAMBDA_LAYER_NAME" $LAMBDA_LAYER_NAME
+
 EXISTING_LAMBDA_LAYER=$(aws lambda list-layers --compatible-runtime python3.8 --profile $AWS_PROFILE)
-echo "INFO ::: EXISTING_LAMBDA_LAYER ::: $EXISTING_LAMBDA_LAYER"
-EXT_LAMBDA_LAYER=$(echo $EXISTING_LAMBDA_LAYER | jq -r '.Layers[] | select(.LayerName == '\"$LAMBDA_LAYER_NAME\"') | {LayerName}')
+# echo "INFO ::: EXISTING_LAMBDA_LAYER ::: $EXISTING_LAMBDA_LAYER"
+
+EXT_LAMBDA_LAYER=$(echo $EXISTING_LAMBDA_LAYER | jq -r '.Layers[] | select(.LayerName == '\"$LAMBDA_LAYER_NAME\"') | {LayerName}'| jq -r '.LayerName')
 echo "ext_lambda_layer $EXT_LAMBDA_LAYER"
 
-if [ "$EXT_LAMBDA_LAYER" = "" ]; then
+if [ "$EXT_LAMBDA_LAYER" != "$LAMBDA_LAYER_NAME" ]; then
+
     mkdir -p $path
     for i in opensearch-py requests requests_aws4auth python-pptx PyMuPDF python-docx pandas chardet openpyxl xlrd; do
         pip3 install "$i" --target "${path}/python/lib/python3.8/site-packages/"
