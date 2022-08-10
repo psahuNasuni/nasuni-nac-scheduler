@@ -30,11 +30,11 @@ Create_NAC_ES_SecurityGroup() {
     CIDR=$(aws ec2 describe-vpcs --profile $PROFILE --region $REGION | jq -r '.Vpcs[]|select(.VpcId == '\"$VPC_ID\"')|{CidrBlock}' | jq -r '.CidrBlock')
     echo "CIDR: $CIDR"
 
-    CHECK_SG=$(aws ec2 describe-security-groups --filters Name=group-name,Values=*nasuni-labs-SG-$REGION* --query "SecurityGroups[*].{Name:GroupName,ID:GroupId}" --profile $PROFILE --region $REGION | jq -r '.[].ID')
+    CHECK_SG=$(aws ec2 describe-security-groups --filters Name=group-name,Values=*nasuni-labs-SG-$REGION* Name=vpc-id,Values=$VPC_ID --query "SecurityGroups[*].{Name:GroupName,ID:GroupId}" --profile $PROFILE --region $REGION | jq -r '.[].ID')
     if [[ $CHECK_SG == "" ]] || [[ $CHECK_SG == "null" ]]; then
         echo "INFO ::: Security Group Does Not Exist !!!"
 
-        CREATE_SG=$(aws ec2 create-security-group --group-name "nasuni-labs-SG-$REGION" --description "NAC-ES Infrastructure security group" --profile $PROFILE --region $REGION)
+        CREATE_SG=$(aws ec2 create-security-group --group-name "nasuni-labs-SG-$REGION" --description "NAC-ES Infrastructure security group" --profile $PROFILE --region $REGION --vpc-id $VPC_ID)
         SG_ID=$(echo $CREATE_SG | jq -r '.GroupId')
         echo "INFO ::: New Security Group Created with ID = $SG_ID"
     else
