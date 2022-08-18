@@ -121,7 +121,7 @@ echo "NAC_Activity : Export In Progress"
 
 OS_URL=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.nac_es_url')
 KIBANA_URL=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.nac_kibana_url')
-DEFAULT_URL="/SearchUI_Web/index.html"
+DEFAULT_URL="/search/index.html"
 USER_SECRET=$OS_ADMIIN_SECRET
 CREATED_BY=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.nac_es_admin_user')
 CREATED_ON=$(date "+%Y%m%d-%H%M%S")
