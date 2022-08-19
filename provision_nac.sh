@@ -237,7 +237,7 @@ else
 	echo "NAC_Activity : Export Failed/Indexing Failed"
 	CURRENT_STATE="Export-Failed-And-Indexing-Failed"
 	generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
-	exit 1
+	##exit 1
     fi
     sleep 300
 
