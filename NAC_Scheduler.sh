@@ -527,28 +527,28 @@ Schedule_CRON_JOB() {
 	CRON_DIR_NAME="${NMC_VOLUME_NAME}_${ANALYTICS_SERVICE}"
 	TFVARS_FILE_NAME="${CRON_DIR_NAME}.tfvars"
 	rm -rf "$TFVARS_FILE_NAME"
-	arn=$(aws sts get-caller-identity --profile nasuni| jq -r '.Arn' )
+	arn=$(aws sts get-caller-identity --profile $AWS_PROFILE| jq -r '.Arn' )
 	AWS_CURRENT_USER=$(cut -d'/' -f2 <<<"$arn")
 	echo "INFO ::: $AWS_CURRENT_USER which will be added for lambda layer::: "
 	NEW_NAC_IP=$(echo $NAC_SCHEDULER_IP_ADDR | tr '.' '-')
 	RND=$(( $RANDOM % 1000000 )); 
 	LAMBDA_LAYER_SUFFIX=$(echo $RND)
-
-	echo "INFO ::: Scheduling CRON_JOB :: $NEW_NAC_IP which will be added for lambda layer::: "
+	####AWS command for getting instance-id
+	NACSCHEDULER_UID=$(aws ec2 describe-instances --query "Reservations[].Instances[].InstanceId" --filters "Name=tag:Name,Values='$NAC_SCHEDULER_NAME'" "Name=instance-state-name,Values=running"  --profile $AWS_PROFILE | jq '.[]'|tr -d '"')
+	echo "INFO ::: NACSCHEDULER_UID :: $NACSCHEDULER_UID which will be added for lambda layer::: "
+	
 	echo "aws_profile="\"$AWS_PROFILE\" >>$TFVARS_FILE_NAME
 	echo "region="\"$AWS_REGION\" >>$TFVARS_FILE_NAME
 	echo "volume_name="\"$NMC_VOLUME_NAME\" >>$TFVARS_FILE_NAME
 	echo "user_secret="\"$USER_SECRET\" >>$TFVARS_FILE_NAME
 	echo "github_organization="\"$GITHUB_ORGANIZATION\" >>$TFVARS_FILE_NAME
 	echo "git_branch="\"$GIT_BRANCH\" >>$TFVARS_FILE_NAME
-	echo "nac_scheduler_ip_addr="\"$NEW_NAC_IP\" >>$TFVARS_FILE_NAME 
-	echo "aws_current_user="\"$AWS_CURRENT_USER\" >>$TFVARS_FILE_NAME ### Append Current aws user
 	echo "user_vpc_id="\"$USER_VPC_ID\" >>$TFVARS_FILE_NAME
 	echo "user_subnet_id="\"$USER_SUBNET_ID\" >>$TFVARS_FILE_NAME
-	echo "lambda_layer_suffix="\"$LAMBDA_LAYER_SUFFIX\" >>$TFVARS_FILE_NAME
 	echo "frequency="\"$FREQUENCY\" >>$TFVARS_FILE_NAME
 	echo "nac_scheduler_name="\"$NAC_SCHEDULER_NAME\" >>$TFVARS_FILE_NAME
 	echo "nac_es_securitygroup_id="\"$NAC_ES_SECURITYGROUP_ID\" >>$TFVARS_FILE_NAME
+	echo "nacscheduler_uid="\"$NACSCHEDULER_UID\" >>$TFVARS_FILE_NAME
 	if [[ "$USE_PRIVATE_IP" == "Y" ]]; then
 		echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$TFVARS_FILE_NAME
 	fi
@@ -573,7 +573,7 @@ Schedule_CRON_JOB() {
 		echo "INFO ::: create_layer.sh executed dos2unix Successfully to NAC_Scheduer Instance."
 	fi
 	#IAM_USER to be defined. et user 
-	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sh create_layer.sh nasuni-labs-os-lambda-layer $AWS_PROFILE $NAC_SCHEDULER_IP_ADDR $AWS_CURRENT_USER $LAMBDA_LAYER_SUFFIX" #SSA
+	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sh create_layer.sh $AWS_PROFILE $NACSCHEDULER_UID" 
 	RES="$?"
 	if [ $RES -ne 0 ]; then
 		echo "ERROR ::: Scheduling CRON_JOB :: Failed to execute create_layer.sh to NAC_Scheduer Instance."
