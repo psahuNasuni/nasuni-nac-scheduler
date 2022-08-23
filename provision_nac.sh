@@ -59,7 +59,8 @@ generate_tracker_json(){
 	CURRENT_STATE=${11}
 	LATEST_TOC_HANDLE_PROCESSED=${12}
 	NAC_SCHEDULER_NAME=$(echo "${13}" | tr -d '"')
-	python3 /home/ubuntu/tracker_json.py $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
+	sudo chmod -R 777 /var/www/Tracker_UI/docs/
+	python3 /var/www/Tracker_UI/docs/tracker_json.py $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
 	echo "INFO ::: TRACKER JSON  Updated"
 }
 
@@ -121,7 +122,7 @@ echo "NAC_Activity : Export In Progress"
 
 OS_URL=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.nac_es_url')
 KIBANA_URL=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.nac_kibana_url')
-DEFAULT_URL="/SearchUI_Web/index.html"
+DEFAULT_URL="/search/index.html"
 USER_SECRET=$OS_ADMIIN_SECRET
 CREATED_BY=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.nac_es_admin_user')
 CREATED_ON=$(date "+%Y%m%d-%H%M%S")
@@ -132,7 +133,7 @@ MOST_RECENT_RUN=$(date "+%Y:%m:%d-%H:%M:%S")
 CURRENT_STATE="Export-In-progress"
 LATEST_TOC_HANDLE_PROCESSED="-"
 echo "INFO ::: Nach sheduler name: " ${NAC_SCHEDULER_NAME}
-JSON_FILE_PATH="$HOME/TrackerJson/${NAC_SCHEDULER_NAME}_tracker.json"
+JSON_FILE_PATH="/var/www/Tracker_UI/docs/${NAC_SCHEDULER_NAME}_tracker.json"
 echo "INFO ::: JSON_FILE_PATH:" $JSON_FILE_PATH
 if [ -f "$JSON_FILE_PATH" ] ; then
 	TRACEPATH="${NMC_VOLUME_NAME}_${ANALYTICS_SERVICE}"
@@ -188,10 +189,10 @@ NMC_VOLUME_NAME_1=$(echo $NMC_VOLUME_NAME|tr -d '"')
 ANALYTICS_SERVICE_1=$(echo $ANALYTICS_SERVICE|tr -d '"')
 NAC_SCHEDULER_NAME_1=$(echo $NAC_SCHEDULER_NAME|tr -d '"')
 
-JSON_FILE_PATH="$HOME/TrackerJson/${NAC_SCHEDULER_NAME_1}_tracker.json"
+#JSON_FILE_PATH="$HOME/TrackerJson/${NAC_SCHEDULER_NAME_1}_tracker.json"
 echo $JSON_FILE_PATH
 LATEST_TOC_HANDLE=""
-if [ ! -d "~/Trackerson" ] ; then
+if [ -f "$JSON_FILE_PATH" ] ; then
 	TRACEPATH="${NMC_VOLUME_NAME_1}_${ANALYTICS_SERVICE_1}"
 	echo $TRACEPATH
 	TRACKER_JSON=$(cat $JSON_FILE_PATH)
