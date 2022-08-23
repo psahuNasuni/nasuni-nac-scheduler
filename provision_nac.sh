@@ -133,7 +133,7 @@ MOST_RECENT_RUN=$(date "+%Y:%m:%d-%H:%M:%S")
 CURRENT_STATE="Export-In-progress"
 LATEST_TOC_HANDLE_PROCESSED="-"
 echo "INFO ::: Nach sheduler name: " ${NAC_SCHEDULER_NAME}
-JSON_FILE_PATH="$HOME/TrackerJson/${NAC_SCHEDULER_NAME}_tracker.json"
+JSON_FILE_PATH="/var/www/Tracker_UI/docs/${NAC_SCHEDULER_NAME}_tracker.json"
 echo "INFO ::: JSON_FILE_PATH:" $JSON_FILE_PATH
 if [ -f "$JSON_FILE_PATH" ] ; then
 	TRACEPATH="${NMC_VOLUME_NAME}_${ANALYTICS_SERVICE}"
@@ -188,10 +188,10 @@ NMC_VOLUME_NAME_1=$(echo $NMC_VOLUME_NAME|tr -d '"')
 ANALYTICS_SERVICE_1=$(echo $ANALYTICS_SERVICE|tr -d '"')
 NAC_SCHEDULER_NAME_1=$(echo $NAC_SCHEDULER_NAME|tr -d '"')
 
-JSON_FILE_PATH="$HOME/TrackerJson/${NAC_SCHEDULER_NAME_1}_tracker.json"
+#JSON_FILE_PATH="$HOME/TrackerJson/${NAC_SCHEDULER_NAME_1}_tracker.json"
 echo $JSON_FILE_PATH
 LATEST_TOC_HANDLE=""
-if [ ! -d "~/Trackerson" ] ; then
+if [ -f "$JSON_FILE_PATH" ] ; then
 	TRACEPATH="${NMC_VOLUME_NAME_1}_${ANALYTICS_SERVICE_1}"
 	echo $TRACEPATH
 	TRACKER_JSON=$(cat $JSON_FILE_PATH)
