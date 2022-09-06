@@ -1,6 +1,7 @@
 ####./creater_layer.sh <package_name> <layer_name>
 ####./creater_layer.sh elasticsearch my-layer
 ####./creater_layer.sh my-layer nasuni
+### Comment for test
 path="app"
 LAYER_NAME="nasuni-labs-os-lambda-layer"
 AWS_PROFILE="$1"
