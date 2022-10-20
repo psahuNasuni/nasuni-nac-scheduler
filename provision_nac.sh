@@ -21,7 +21,9 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 ####
 #############################################################################################
 set -e
-
+DATE_WITH_TIME=$(date "+%Y%m%d-%H%M%S")
+LOG_FILE=provision_nac_$DATE_WITH_TIME.log
+(
 START=$(date +%s)
 {
 	TFVARS_FILE=$1
@@ -328,3 +330,4 @@ echo "INFO ::: Total execution Time ::: $DIFF"
 	echo "INFO ::: Failed NAC Povisioning"
 
 }
+)2>&1 | tee $LOG_FILE
