@@ -7,7 +7,8 @@
 ##############################################
 DATE_WITH_TIME=$(date "+%Y%m%d-%H%M%S")
 START=$(date +%s)
-
+LOG_FILE=NAC_SCHEDULER_$DATE_WITH_TIME.log
+(
 add_Rules_To_SecurityGroup() {
     SG_ID="$1"
     PORT="$2"
@@ -606,7 +607,7 @@ Schedule_CRON_JOB() {
 		### Set up a new CRON JOB for NAC Provisioning
 
 		echo "INFO ::: Setting CRON JOB for $CRON_DIR_NAME as it is not present"
-		ssh -i "$PEM" ubuntu@$NAC_SCHEDULER_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "(crontab -l ; echo '*/$FREQUENCY * * * * cd ~/$CRON_DIR_NAME && /bin/bash provision_nac.sh  ~/$CRON_DIR_NAME/$TFVARS_FILE_NAME >> ~/$CRON_DIR_NAME/CRON_log-$CRON_DIR_NAME-$DATE_WITH_TIME.log 2>&1') | sort - | uniq - | crontab -"
+		ssh -i "$PEM" ubuntu@$NAC_SCHEDULER_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "(crontab -l ; echo '*/$FREQUENCY * * * * cd ~/$CRON_DIR_NAME && /bin/bash provision_nac.sh  ~/$CRON_DIR_NAME/$TFVARS_FILE_NAME') | sort - | uniq - | crontab -"
 		if [ $? -eq 0 ]; then
 			echo "INFO :::  Scheduling CRON_JOB :: SUCCESS :: for NMC VOLUME and Service :: $CRON_DIR_NAME"
 			exit 0
@@ -927,4 +928,5 @@ END=$(date +%s)
 secs=$((END - START))
 DIFF=$(printf '%02dh:%02dm:%02ds\n' $((secs / 3600)) $((secs % 3600 / 60)) $((secs % 60)))
 echo "INFO ::: Total execution Time ::: $DIFF !!!"
+)2>&1 | tee $LOG_FILE
 #exit 0
