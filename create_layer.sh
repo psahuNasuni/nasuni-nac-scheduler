@@ -25,7 +25,7 @@ echo "ext_lambda_layer $EXT_LAMBDA_LAYER"
 if [ "$EXT_LAMBDA_LAYER" != "$LAMBDA_LAYER_NAME" ]; then
 
     mkdir -p $path
-    for i in opensearch-py requests requests_aws4auth python-pptx PyMuPDF python-docx pandas chardet openpyxl xlrd; do
+    for i in opensearch-py requests requests_aws4auth python-pptx PyMuPDF python-docx pandas chardet openpyxl xlrd xml-python email; do
         pip3 install "$i" --target "${path}/python/lib/python3.8/site-packages/"
     done
     cd $path && zip -r ../lambdalayer.zip .
