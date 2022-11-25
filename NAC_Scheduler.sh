@@ -70,8 +70,8 @@ get_subnet_details(){
 }
 
 current_folder(){
-CURRENT_FOLDER=`pwd`
-echo "INFO ::: Current Folder: $CURRENT_FOLDER"
+	CURRENT_FOLDER=`pwd`
+	echo "INFO ::: Current Folder: $CURRENT_FOLDER"
 }
 
 check_if_opensearch_exists(){
@@ -170,7 +170,6 @@ check_if_opensearch_exists(){
 		##### RUN terraform Apply
 		echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: Creating TFVARS File."
 		#### Create TFVARS FILE FOR OS Provisioning
-		# echo "USE_PRIVATE_IP $USE_PRIVATE_IP
 		USE_PRIVATE_IP=$(echo $USE_PRIVATE_IP|tr -d '"')
 		USER_SUBNET_ID=$(echo $SUBNET_IS|tr -d '"')  ### Fix 20/11/2022 for: The subnet ID 'null' does not exist
 		USER_VPC_ID=$(echo $USER_VPC_ID|tr -d '"')
@@ -206,31 +205,31 @@ check_if_opensearch_exists(){
 }
 
 check_if_vpc_exists(){
-INPUT_VPC="$1"
+	INPUT_VPC="$1"
 
-VPC_CHECK=`aws ec2 describe-vpcs --filters "Name=vpc-id,Values=$INPUT_VPC" --region ${AWS_REGION} --profile "${AWS_PROFILE}" | jq -r '.Vpcs[].VpcId'`
-echo "$?"
-VPC_0_SUBNET=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$INPUT_VPC" --region ${AWS_REGION} --profile "${AWS_PROFILE}" | jq -r '.Subnets[0].SubnetId')
-VPC_IS="$VPC_CHECK"
-SUBNET_IS="$VPC_0_SUBNET"
-AZ_IS=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$INPUT_VPC" --region ${AWS_REGION} --profile "${AWS_PROFILE}" | jq -r '.Subnets[0].AvailabilityZone')
-echo "SUBNET_IS=$VPC_0_SUBNET , VPC_IS=$VPC_CHECK, AZ_IS=$AZ_IS"
-if [ "$VPC_CHECK" == "null" ] || [ "$VPC_CHECK" == "" ]; then
-	echo "ERROR ::: VPC $INPUT_VPC not available. Please provide a valid VPC ID."
-	exit 1
-else
-	echo "INFO ::: VPC $VPC_IS is Valid" 
-fi
+	VPC_CHECK=`aws ec2 describe-vpcs --filters "Name=vpc-id,Values=$INPUT_VPC" --region ${AWS_REGION} --profile "${AWS_PROFILE}" | jq -r '.Vpcs[].VpcId'`
+	echo "$?"
+	VPC_0_SUBNET=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$INPUT_VPC" --region ${AWS_REGION} --profile "${AWS_PROFILE}" | jq -r '.Subnets[0].SubnetId')
+	VPC_IS="$VPC_CHECK"
+	SUBNET_IS="$VPC_0_SUBNET"
+	AZ_IS=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$INPUT_VPC" --region ${AWS_REGION} --profile "${AWS_PROFILE}" | jq -r '.Subnets[0].AvailabilityZone')
+	echo "SUBNET_IS=$VPC_0_SUBNET , VPC_IS=$VPC_CHECK, AZ_IS=$AZ_IS"
+	if [ "$VPC_CHECK" == "null" ] || [ "$VPC_CHECK" == "" ]; then
+		echo "ERROR ::: VPC $INPUT_VPC not available. Please provide a valid VPC ID."
+		exit 1
+	else
+		echo "INFO ::: VPC $VPC_IS is Valid" 
+	fi
 }
 
 check_if_pem_file_exists() {
-FILE=$(echo "$1" | tr -d '"')
-if [ -f "$FILE" ]; then
-	echo "INFO ::: $FILE exists."
-else 
-	echo "ERROR ::: $FILE does not exist."
-	exit 1
-fi
+	FILE=$(echo "$1" | tr -d '"')
+	if [ -f "$FILE" ]; then
+		echo "INFO ::: $FILE exists."
+	else 
+		echo "ERROR ::: $FILE does not exist."
+		exit 1
+	fi
 
 }
 
@@ -494,7 +493,6 @@ AWS_REGION=""
 AWS_ACCESS_KEY_ID=""
 AWS_SECRET_ACCESS_KEY=""
 ARG_COUNT="$#"
-USE_PRIVATE_IP="N"
 ######################## Validating AWS profile for NAC ####################################
 validate_aws_profile() {
 	echo "INFO ::: Validating AWS profile ${AWS_PROFILE} for NAC  . . . . . . . . . . . . . . . . !!!"
@@ -512,30 +510,30 @@ validate_aws_profile() {
 }
 
 get_subnet_details(){
-INPUT_SUBNET="$1"
-echo "$INPUT_SUBNET"
-SUBNET_CHECK=`aws ec2 describe-subnets --filters "Name=subnet-id,Values=$INPUT_SUBNET" --region $AWS_REGION --profile "$AWS_PROFILE"`
-SUBNET=`echo $SUBNET_CHECK | jq -r '.Subnets[].SubnetId'`
-SUBNET_VPC=`echo $SUBNET_CHECK | jq -r '.Subnets[].VpcId'`
-VPC_IS="$SUBNET_VPC"
-SUBNET_IS="$SUBNET"
-AZ_IS=`echo $SUBNET_CHECK | jq -r '.Subnets[].AvailabilityZone'`
-IS_PUBLIC_SUBNET=`echo $SUBNET_CHECK | jq -r '.Subnets[].MapPublicIpOnLaunch'`
-if [ "$SUBNET_IS" == "" ] || [ "$SUBNET_IS" == "null" ] ; then
-	echo "ERROR ::: Provided subnet $INPUT_SUBNET not found !!!" 
-	exit 1
-fi
+	INPUT_SUBNET="$1"
+	echo "$INPUT_SUBNET"
+	SUBNET_CHECK=`aws ec2 describe-subnets --filters "Name=subnet-id,Values=$INPUT_SUBNET" --region $AWS_REGION --profile "$AWS_PROFILE"`
+	SUBNET=`echo $SUBNET_CHECK | jq -r '.Subnets[].SubnetId'`
+	SUBNET_VPC=`echo $SUBNET_CHECK | jq -r '.Subnets[].VpcId'`
+	VPC_IS="$SUBNET_VPC"
+	SUBNET_IS="$SUBNET"
+	AZ_IS=`echo $SUBNET_CHECK | jq -r '.Subnets[].AvailabilityZone'`
+	IS_PUBLIC_SUBNET=`echo $SUBNET_CHECK | jq -r '.Subnets[].MapPublicIpOnLaunch'`
+	if [ "$SUBNET_IS" == "" ] || [ "$SUBNET_IS" == "null" ] ; then
+		echo "ERROR ::: Provided subnet $INPUT_SUBNET not found !!!" 
+		exit 1
+	fi
 
 }
 
 get_default_subnet_details(){
-AWS_REGION="$1"
-AWS_PROFILE="$2"
-DEFAULT_VPC=$(aws ec2 describe-vpcs --region $AWS_REGION --profile $AWS_PROFILE --query 'Vpcs[?(IsDefault==`true`)].VpcId | [0]' --output text)
-DEFAULT_SN=$(aws ec2 describe-subnets --region $AWS_REGION --profile $AWS_PROFILE --filters "Name=vpc-id,Values=$DEFAULT_VPC" --query 'Subnets[?(DefaultForAz==`true`)].SubnetId | [0]' --output text)
-SUBNET_CHECK=`aws ec2 describe-subnets --filters "Name=subnet-id,Values=$DEFAULT_SN" --region $AWS_REGION --profile "$AWS_PROFILE"`
-AZ_OF_DEFAULT_SUBNET_IS=`echo $SUBNET_CHECK | jq -r '.Subnets[].AvailabilityZone'`
-IGW_ID=`aws ec2 describe-internet-gateways --filters Name=attachment.vpc-id,Values=$DEFAULT_VPC --query "InternetGateways[].InternetGatewayId" | jq -r '.[0]'`
+	AWS_REGION="$1"
+	AWS_PROFILE="$2"
+	DEFAULT_VPC=$(aws ec2 describe-vpcs --region $AWS_REGION --profile $AWS_PROFILE --query 'Vpcs[?(IsDefault==`true`)].VpcId | [0]' --output text)
+	DEFAULT_SN=$(aws ec2 describe-subnets --region $AWS_REGION --profile $AWS_PROFILE --filters "Name=vpc-id,Values=$DEFAULT_VPC" --query 'Subnets[?(DefaultForAz==`true`)].SubnetId | [0]' --output text)
+	SUBNET_CHECK=`aws ec2 describe-subnets --filters "Name=subnet-id,Values=$DEFAULT_SN" --region $AWS_REGION --profile "$AWS_PROFILE"`
+	AZ_OF_DEFAULT_SUBNET_IS=`echo $SUBNET_CHECK | jq -r '.Subnets[].AvailabilityZone'`
+	IGW_ID=`aws ec2 describe-internet-gateways --filters Name=attachment.vpc-id,Values=$DEFAULT_VPC --query "InternetGateways[].InternetGatewayId" | jq -r '.[0]'`
 }
 
 
@@ -659,6 +657,7 @@ FREQUENCY="$3"         ### 3rd argument  ::: FREQUENCY
 FOURTH_ARG="$4"        ### 4th argument  ::: User Secret a KVP file Or an existing Secret
 NAC_INPUT_KVP="$5"     ### 5th argument  ::: User defined KVP file for passing arguments to NAC
 GIT_BRANCH="main"	   ### Setting Up default Git Branch as "main". For debugging change the value of your branch and execute.
+USE_PRIVATE_IP="N"
 # GIT_BRANCH="Optimization"
 echo "INFO ::: Validating Arguments Passed to NAC_Scheduler.sh"
 if [ "${#NMC_VOLUME_NAME}" -lt 3 ]; then
@@ -797,6 +796,8 @@ if [ "$USER_SUBNET_ID" == "" ] || [ "$USER_SUBNET_ID" == "null" ] ; then
 	SUBNET_IS=$DEFAULT_SN
 	USER_VPC_ID=$DEFAULT_VPC
 	AZ_IS=$AZ_OF_DEFAULT_SUBNET_IS
+	echo "INFO ::: Found Subnet $SUBNET_IS in VPC=$USER_VPC_ID ::: AZ is=$AZ_IS "
+	VPC_IS=$USER_VPC_ID
 else
 	echo "INFO ::: user_subnet_id provided in the user Secret as user_subnet_id=$USER_SUBNET_ID"  
 	get_subnet_details $USER_SUBNET_ID
@@ -905,9 +906,15 @@ else
 	fi
 	if [[ "$USE_PRIVATE_IP" != "" ]]; then
 		echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$TFVARS_NAC_SCHEDULER
+	else
+		USE_PRIVATE_IP=N
+		echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$TFVARS_NAC_SCHEDULER
 	fi
 	echo "$TFVARS_NAC_SCHEDULER created"
 	echo `cat $TFVARS_NAC_SCHEDULER`
+	echo "INFO ::: use_private_ip - $USE_PRIVATE_IP"
+	echo "INFO ::: user_vpc_id - $VPC_IS"
+	echo "INFO ::: user_subnet_id - $SUBNET_IS"
 
 	dos2unix $TFVARS_NAC_SCHEDULER
 	COMMAND="terraform apply -var-file=$TFVARS_NAC_SCHEDULER -auto-approve"
