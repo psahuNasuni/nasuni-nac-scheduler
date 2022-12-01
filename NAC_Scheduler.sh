@@ -136,10 +136,20 @@ check_if_opensearch_exists(){
 			echo "INFO ::: ES_ServiceLink name : $ES_ServiceLink_NAME"
 			echo "INFO ::: OpenSearch ServiceLink Role already Available !!!"
 		fi
+				#### Create TFVARS FILE FOR OS Provisioning
+		USE_PRIVATE_IP=$(echo $USE_PRIVATE_IP|tr -d '"')
+		USER_SUBNET_ID=$(echo $SUBNET_IS|tr -d '"')  ### Fix 20/11/2022 for: The subnet ID 'null' does not exist
+		USER_VPC_ID=$(echo $USER_VPC_ID|tr -d '"')
+		AWS_REGION=$(echo $AWS_REGION|tr -d '"')
+		echo "INFO ::: USE_PRIVATE_IP : $USE_PRIVATE_IP "
 		
 		########## Download Amazon_OpenSearch_Service provisioning Code from GitHub ##########
 		### GITHUB_ORGANIZATION defaults to nasuni-labs
-		REPO_FOLDER="nasuni-awsopensearch"
+		if [ "$USE_PRIVATE_IP" == "N" ] || [ "$USE_PRIVATE_IP" == null ] || [ "$USE_PRIVATE_IP" == "" ]; then
+			REPO_FOLDER="nasuni-awsopensearch-public"
+		else
+			REPO_FOLDER="nasuni-awsopensearch"
+		fi
 		validate_github $GITHUB_ORGANIZATION $REPO_FOLDER
 		########################### Git Clone  ###############################################################
 		echo "INFO ::: BEGIN - Git Clone !!!"
@@ -169,12 +179,6 @@ check_if_opensearch_exists(){
 
 		##### RUN terraform Apply
 		echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: Creating TFVARS File."
-		#### Create TFVARS FILE FOR OS Provisioning
-		USE_PRIVATE_IP=$(echo $USE_PRIVATE_IP|tr -d '"')
-		USER_SUBNET_ID=$(echo $SUBNET_IS|tr -d '"')  ### Fix 20/11/2022 for: The subnet ID 'null' does not exist
-		USER_VPC_ID=$(echo $USER_VPC_ID|tr -d '"')
-		AWS_REGION=$(echo $AWS_REGION|tr -d '"')
-		echo "INFO ::: USE_PRIVATE_IP : $USE_PRIVATE_IP "
 
 		OS_TFVARS="Os.tfvars"
 		echo "user_subnet_id="\"$USER_SUBNET_ID\" >$OS_TFVARS
@@ -560,7 +564,7 @@ Schedule_CRON_JOB() {
 	####AWS command for getting instance-id
 	NACSCHEDULER_UID=$(aws ec2 describe-instances --query "Reservations[].Instances[].InstanceId" --filters "Name=tag:Name,Values='$NAC_SCHEDULER_NAME'" "Name=instance-state-name,Values=running"  --profile $AWS_PROFILE | jq '.[]'|tr -d '"')
 	echo "INFO ::: NACSCHEDULER_UID :: $NACSCHEDULER_UID which will be added for lambda layer::: "
-	
+	echo "INFO ::: USER_SECRET :: $USER_SECRET ::: "
 	echo "aws_profile="\"$AWS_PROFILE\" >>$TFVARS_FILE_NAME
 	echo "region="\"$AWS_REGION\" >>$TFVARS_FILE_NAME
 	echo "volume_name="\"$NMC_VOLUME_NAME\" >>$TFVARS_FILE_NAME

@@ -154,7 +154,12 @@ pwd
 echo "INFO ::: current user :-"`whoami`
 ########## Download NAC Provisioning Code from GitHub ##########
 ### GITHUB_ORGANIZATION defaults to nasuni-labs
-REPO_FOLDER="nasuni-analyticsconnector-opensearch"
+# REPO_FOLDER="nasuni-analyticsconnector-opensearch"
+if [ "$USE_PRIVATE_IP" == "N" ] || [ "$USE_PRIVATE_IP" == null ] || [ "$USE_PRIVATE_IP" == "" ]; then
+        REPO_FOLDER="nasuni-analyticsconnector-opensearch-public"
+else
+        REPO_FOLDER="nasuni-analyticsconnector-opensearch"
+fi
 validate_github $GITHUB_ORGANIZATION $REPO_FOLDER
 ########################### Git Clone : NAC Provisioning Repo ###############################################################
 echo "INFO ::: BEGIN - Git Clone !!!"
