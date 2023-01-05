@@ -12,11 +12,11 @@ LOG_FILE=NAC_SCHEDULER_$DATE_WITH_TIME.log
 add_Rules_To_SecurityGroup() {
     SG_ID="$1"
     PORT="$2"
-    CIDR="$3"
+    VPC_CIDR="$3"
     PROFILE="$4"
     REGION="$5"
     echo "INFO ::: Updating Security Rule to allow inbound traffic from port $PORT"
-    aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port $PORT --cidr $CIDR --profile $PROFILE --region $REGION  2> /dev/null
+    aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port $PORT --cidr $VPC_CIDR --profile $PROFILE --region $REGION  2> /dev/null
     if [[ $? -ne 0 ]]; then
         echo "INFO ::: Security Rule to allow inbound traffic from port $PORT already Exist !!!"
     else
@@ -25,58 +25,53 @@ add_Rules_To_SecurityGroup() {
 }
 
 Create_NAC_ES_SecurityGroup() {
-    VPC_ID="$1"
+    VPC_ID_INPUT="$1"
     PROFILE="$2"
     REGION="$3"
-    CIDR=$(aws ec2 describe-vpcs --profile $PROFILE --region $REGION | jq -r '.Vpcs[]|select(.VpcId == '\"$VPC_ID\"')|{CidrBlock}' | jq -r '.CidrBlock')
-    echo "CIDR: $CIDR"
+    VPC_DETAILS=$(aws ec2 describe-vpcs --vpc-ids $VPC_ID_INPUT --profile $PROFILE --region $REGION | jq -r '.Vpcs[]')
+	VPC_CIDR=$(echo $VPC_DETAILS | jq -r '.CidrBlock' 2> /dev/null)
+	VPC_ID=$(echo $VPC_DETAILS | jq -r '.VpcId' 2> /dev/null)
+	echo "INFO ::: VPC_CIDR=$VPC_CIDR VPC_ID=$VPC_ID"
+    echo "INFO ::: Checking, If Security Group Exist in the VPC=$VPC_ID !!!"
 
     CHECK_SG=$(aws ec2 describe-security-groups --filters Name=group-name,Values=*nasuni-labs-SG-$REGION* Name=vpc-id,Values=$VPC_ID --query "SecurityGroups[*].{Name:GroupName,ID:GroupId}" --profile $PROFILE --region $REGION | jq -r '.[].ID')
     if [[ $CHECK_SG == "" ]] || [[ $CHECK_SG == "null" ]]; then
         echo "INFO ::: Security Group Does Not Exist !!!"
-
-        CREATE_SG=$(aws ec2 create-security-group --group-name "nasuni-labs-SG-$REGION" --description "NAC-ES Infrastructure security group" --profile $PROFILE --region $REGION --vpc-id $VPC_ID)
+        CREATE_SG=$(aws ec2 create-security-group --group-name "nasuni-labs-SG-$REGION" --description "NAC-ES Infrastructure security group" --profile $PROFILE --region $REGION --vpc-id $VPC_ID --tag-specifications 'ResourceType=security-group,Tags=[{Key=Application,Value=SecurityGroup for Nasuni Analytics Connector Integration with AWS OpenSearch},{Key=PublicationType,Value=Nasuni Labs},{Key=Developer,Value=Nasuni},{Key=Version,Value=V 0.1}]')
         SG_ID=$(echo $CREATE_SG | jq -r '.GroupId')
-        echo "INFO ::: New Security Group Created with ID = $SG_ID"
+        echo "INFO ::: New Security Group Created with ID = $SG_ID in VPC $VPC_ID !!! "
     else
         SG_ID="$CHECK_SG"
-        echo "INFO ::: Security Group $SG_ID Already Exists !!!"
+        echo "INFO ::: Found the Security Group $SG_ID in VPC $VPC_ID !!!"
     fi
 	NAC_ES_SECURITYGROUP_ID="$SG_ID"
-    add_Rules_To_SecurityGroup $SG_ID 22 $CIDR $PROFILE $REGION
-    add_Rules_To_SecurityGroup $SG_ID 80 $CIDR $PROFILE $REGION
-    add_Rules_To_SecurityGroup $SG_ID 443 $CIDR $PROFILE $REGION
-    add_Rules_To_SecurityGroup $SG_ID 8080 $CIDR $PROFILE $REGION
+    add_Rules_To_SecurityGroup $SG_ID 22 $VPC_CIDR $PROFILE $REGION
+    add_Rules_To_SecurityGroup $SG_ID 80 $VPC_CIDR $PROFILE $REGION
+    add_Rules_To_SecurityGroup $SG_ID 443 $VPC_CIDR $PROFILE $REGION
+    add_Rules_To_SecurityGroup $SG_ID 8080 $VPC_CIDR $PROFILE $REGION
 }
 
-check_if_subnet_exists(){
+get_subnet_details(){
 	INPUT_SUBNET="$1"
-	INPUT_VPC="$2"
-	SUBNET_CHECK=`aws ec2 describe-subnets --filters "Name=subnet-id,Values=$INPUT_SUBNET" --region ${AWS_REGION} --profile "${AWS_PROFILE}"`
+	echo "$INPUT_SUBNET"
+	SUBNET_CHECK=`aws ec2 describe-subnets --filters "Name=subnet-id,Values=$INPUT_SUBNET" --region $AWS_REGION --profile "$AWS_PROFILE"`
 	SUBNET=`echo $SUBNET_CHECK | jq -r '.Subnets[].SubnetId'`
 	SUBNET_VPC=`echo $SUBNET_CHECK | jq -r '.Subnets[].VpcId'`
 	VPC_IS="$SUBNET_VPC"
 	SUBNET_IS="$SUBNET"
 	AZ_IS=`echo $SUBNET_CHECK | jq -r '.Subnets[].AvailabilityZone'`
-	echo "INFO ::: SUBNET_IS=$SUBNET_IS , VPC_IS=$VPC_IS, AZ_IS=$AZ_IS"
-	if [ "$INPUT_VPC" == "" ] ; then
-		INPUT_VPC=$VPC_IS
-	fi
-	if [ "$VPC_IS" != "$INPUT_VPC" ] ; then
-		echo "ERROR ::: $INPUT_SUBNET is not a valid Subnet in VPC $INPUT_VPC."
-		exit 1
-	fi
-
-	if [ "$SUBNET" == "null" ] || [ "$SUBNET" == "" ]; then
-		echo "ERROR ::: Subnet $INPUT_SUBNET not available. Please provide a valid Subnet ID."
+	if [ "$SUBNET_IS" == "" ] || [ "$SUBNET_IS" == "null" ] ; then
+		echo "ERROR ::: Provided subnet $INPUT_SUBNET not found !!!" 
 		exit 1
 	else
-		echo "INFO ::: Subnet $SUBNET_IS exists in VPC $VPC_IS" 
+		echo "INFO ::: Subnet $SUBNET_IS found in VPC=$VPC_IS, AZ_IS=$AZ_IS"
 	fi
+
 }
+
 current_folder(){
-CURRENT_FOLDER=`pwd`
-echo "INFO ::: Current Folder: $CURRENT_FOLDER"
+	CURRENT_FOLDER=`pwd`
+	echo "INFO ::: Current Folder: $CURRENT_FOLDER"
 }
 
 check_if_opensearch_exists(){
@@ -85,32 +80,40 @@ check_if_opensearch_exists(){
 	AWS_REGION="$2"
 	AWS_PROFILE="$3"
 	GITHUB_ORGANIZATION="$4"
-
+	ES_DOMAIN_NAME="tt"
+	echo "INFO ::: ES_DOMAIN NAME : $ES_DOMAIN_NAME"
+	echo "INFO ::: NAC_ES_SecurityGroup :: $NAC_ES_SECURITYGROUP_ID"
+	echo "INFO ::: Subnet :: $SUBNET_IS"
 	######################## Check If ES Domain Available ###############################################
-	ES_DOMAIN_NAME=$(aws secretsmanager get-secret-value --secret-id "${OS_ADMIIN_SECRET}" --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.es_domain_name')
+	ES_DOMAIN_NAME=$(aws secretsmanager get-secret-value --secret-id "${OS_ADMIIN_SECRET}" --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.es_domain_name' 2> /dev/null)
 	echo "INFO ::: ES_DOMAIN NAME : $ES_DOMAIN_NAME"
 	IS_ES="N"
 	if [ "$ES_DOMAIN_NAME" == "" ] || [ "$ES_DOMAIN_NAME" == null ]; then
 		echo "INFO ::: Amazon_OpenSearch_Service configuration is Not found in admin secret"
 		IS_ES="N"
 	else
-		ES_CREATED=$(aws es describe-elasticsearch-domain --domain-name "${ES_DOMAIN_NAME}" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.DomainStatus.Created')
-		if [ $? -eq 0 ]; then
+		ES_DATA=$(aws es describe-elasticsearch-domain --domain-name "${ES_DOMAIN_NAME}" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" 2> /dev/null)
+		# ES_CREATED=$(aws es describe-elasticsearch-domain --domain-name "${ES_DOMAIN_NAME}" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.DomainStatus.Created' 2> /dev/null)
+		ES_CREATED=$(echo $ES_DATA | jq -r '.DomainStatus.Created' 2> /dev/null)
+		# if [ $? -eq 0 ]; then
+		if [[ $ES_CREATED != "" ]]; then
 			echo "INFO ::: ES_CREATED : $ES_CREATED"
-			ES_PROCESSING=$(aws es describe-elasticsearch-domain --domain-name "${ES_DOMAIN_NAME}" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.DomainStatus.Processing')
+			# ES_PROCESSING=$(aws es describe-elasticsearch-domain --domain-name "${ES_DOMAIN_NAME}" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.DomainStatus.Processing')
+			ES_PROCESSING=$(echo $ES_DATA | jq -r '.DomainStatus.Processing' 2> /dev/null)
 			echo "INFO ::: ES_PROCESSING : $ES_PROCESSING"
-			ES_UPGRADE_PROCESSING=$(aws es describe-elasticsearch-domain --domain-name "${ES_DOMAIN_NAME}" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.DomainStatus.UpgradeProcessing')
+			# ES_UPGRADE_PROCESSING=$(aws es describe-elasticsearch-domain --domain-name "${ES_DOMAIN_NAME}" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.DomainStatus.UpgradeProcessing')
+			ES_UPGRADE_PROCESSING=$(echo $ES_DATA | jq -r '.DomainStatus.UpgradeProcessing' 2> /dev/null)
 			echo "INFO ::: ES_UPGRADE_PROCESSING : $ES_UPGRADE_PROCESSING"
 
 			if [ "$ES_PROCESSING" == "false" ] &&  [ "$ES_UPGRADE_PROCESSING" == "false" ]; then
 				echo "INFO ::: Amazon_OpenSearch_Service ::: $ES_DOMAIN_NAME is Active"
 				IS_ES="Y"
 			else
-				echo "ERROR ::: Amazon_OpenSearch_Service ::: $ES_DOMAIN_NAME is either unavailable Or Not Active"
+				echo "INFO ::: Amazon_OpenSearch_Service ::: $ES_DOMAIN_NAME is either unavailable Or Not Active"
 				IS_ES="N"
 			fi
 		else
-			echo "ERROR ::: Amazon_OpenSearch_Service ::: $ES_DOMAIN_NAME not found"
+			echo "INFO ::: Amazon_OpenSearch_Service ::: $ES_DOMAIN_NAME not found"
 			IS_ES="N"
 		fi
 	fi
@@ -133,10 +136,20 @@ check_if_opensearch_exists(){
 			echo "INFO ::: ES_ServiceLink name : $ES_ServiceLink_NAME"
 			echo "INFO ::: OpenSearch ServiceLink Role already Available !!!"
 		fi
+				#### Create TFVARS FILE FOR OS Provisioning
+		USE_PRIVATE_IP=$(echo $USE_PRIVATE_IP|tr -d '"')
+		USER_SUBNET_ID=$(echo $SUBNET_IS|tr -d '"')  ### Fix 20/11/2022 for: The subnet ID 'null' does not exist
+		USER_VPC_ID=$(echo $USER_VPC_ID|tr -d '"')
+		AWS_REGION=$(echo $AWS_REGION|tr -d '"')
+		echo "INFO ::: USE_PRIVATE_IP : $USE_PRIVATE_IP "
 		
 		########## Download Amazon_OpenSearch_Service provisioning Code from GitHub ##########
 		### GITHUB_ORGANIZATION defaults to nasuni-labs
-		REPO_FOLDER="nasuni-awsopensearch"
+		if [ "$USE_PRIVATE_IP" == "N" ] || [ "$USE_PRIVATE_IP" == null ] || [ "$USE_PRIVATE_IP" == "" ]; then
+			REPO_FOLDER="nasuni-awsopensearch-public"
+		else
+			REPO_FOLDER="nasuni-awsopensearch"
+		fi
 		validate_github $GITHUB_ORGANIZATION $REPO_FOLDER
 		########################### Git Clone  ###############################################################
 		echo "INFO ::: BEGIN - Git Clone !!!"
@@ -166,34 +179,19 @@ check_if_opensearch_exists(){
 
 		##### RUN terraform Apply
 		echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: Creating TFVARS File."
-		#### Create TFVARS FILE FOR OS Provisioning
-		# echo "USE_PRIVATE_IP $USE_PRIVATE_IP
-		USE_PRIVATE_IP=$(echo $USE_PRIVATE_IP|tr -d '"')
-		USER_SUBNET_ID=$(echo $USER_SUBNET_ID|tr -d '"')
-		USER_VPC_ID=$(echo $USER_VPC_ID|tr -d '"')
-		AWS_REGION=$(echo $AWS_REGION|tr -d '"')
-		echo "INFO ::: USE_PRIVATE_IP : $USE_PRIVATE_IP "
-		if [[ "$USE_PRIVATE_IP" = Y ]]; then
-			OS_TFVARS="Os.tfvars"
-			echo "user_subnet_id="\"$USER_SUBNET_ID\" >$OS_TFVARS
-			echo "user_vpc_id="\"$USER_VPC_ID\" >>$OS_TFVARS
-			echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$OS_TFVARS
-			echo "es_region="\"$AWS_REGION\" >>$OS_TFVARS
-			echo "nac_es_securitygroup_id="\"$NAC_ES_SECURITYGROUP_ID\" >>$OS_TFVARS
-			echo "" >>$OS_TFVARS
-			echo "INFO ::: TFVARS $OS_TFVARS File created for OpenSearch Provisioning"
-			echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
-			COMMAND="terraform apply -var-file=$OS_TFVARS -auto-approve"
-			$COMMAND
-		else
-			chmod 755 $(pwd)/*
-			# exit 1
-			##### RUN terraform Apply
-			echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
-			COMMAND="terraform apply -auto-approve"
-			$COMMAND
-		fi
 
+		OS_TFVARS="Os.tfvars"
+		echo "user_subnet_id="\"$USER_SUBNET_ID\" >$OS_TFVARS
+		echo "user_vpc_id="\"$USER_VPC_ID\" >>$OS_TFVARS
+		echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$OS_TFVARS
+		echo "es_region="\"$AWS_REGION\" >>$OS_TFVARS
+		echo "nac_es_securitygroup_id="\"$NAC_ES_SECURITYGROUP_ID\" >>$OS_TFVARS
+		echo "" >>$OS_TFVARS
+		echo "INFO ::: TFVARS $OS_TFVARS File created for OpenSearch Provisioning"
+		echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
+		chmod 755 $(pwd)/*
+		COMMAND="terraform apply -var-file=$OS_TFVARS -auto-approve"
+		$COMMAND
 		if [ $? -eq 0 ]; then
 			echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: FINISH ::: Executing ::: Terraform apply ::: SUCCESS"
 		else
@@ -211,31 +209,31 @@ check_if_opensearch_exists(){
 }
 
 check_if_vpc_exists(){
-INPUT_VPC="$1"
+	INPUT_VPC="$1"
 
-VPC_CHECK=`aws ec2 describe-vpcs --filters "Name=vpc-id,Values=$INPUT_VPC" --region ${AWS_REGION} --profile "${AWS_PROFILE}" | jq -r '.Vpcs[].VpcId'`
-echo "$?"
-VPC_0_SUBNET=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$INPUT_VPC" --region ${AWS_REGION} --profile "${AWS_PROFILE}" | jq -r '.Subnets[0].SubnetId')
-VPC_IS="$VPC_CHECK"
-SUBNET_IS="$VPC_0_SUBNET"
-AZ_IS=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$INPUT_VPC" --region ${AWS_REGION} --profile "${AWS_PROFILE}" | jq -r '.Subnets[0].AvailabilityZone')
-echo "SUBNET_IS=$VPC_0_SUBNET , VPC_IS=$VPC_CHECK, AZ_IS=$AZ_IS"
-if [ "$VPC_CHECK" == "null" ] || [ "$VPC_CHECK" == "" ]; then
-	echo "ERROR ::: VPC $INPUT_VPC not available. Please provide a valid VPC ID."
-	exit 1
-else
-	echo "INFO ::: VPC $VPC_IS is Valid" 
-fi
+	VPC_CHECK=`aws ec2 describe-vpcs --filters "Name=vpc-id,Values=$INPUT_VPC" --region ${AWS_REGION} --profile "${AWS_PROFILE}" | jq -r '.Vpcs[].VpcId'`
+	echo "$?"
+	VPC_0_SUBNET=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$INPUT_VPC" --region ${AWS_REGION} --profile "${AWS_PROFILE}" | jq -r '.Subnets[0].SubnetId')
+	VPC_IS="$VPC_CHECK"
+	SUBNET_IS="$VPC_0_SUBNET"
+	AZ_IS=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$INPUT_VPC" --region ${AWS_REGION} --profile "${AWS_PROFILE}" | jq -r '.Subnets[0].AvailabilityZone')
+	echo "SUBNET_IS=$VPC_0_SUBNET , VPC_IS=$VPC_CHECK, AZ_IS=$AZ_IS"
+	if [ "$VPC_CHECK" == "null" ] || [ "$VPC_CHECK" == "" ]; then
+		echo "ERROR ::: VPC $INPUT_VPC not available. Please provide a valid VPC ID."
+		exit 1
+	else
+		echo "INFO ::: VPC $VPC_IS is Valid" 
+	fi
 }
 
 check_if_pem_file_exists() {
-FILE=$(echo "$1" | tr -d '"')
-if [ -f "$FILE" ]; then
-	echo "INFO ::: $FILE exists."
-else 
-	echo "ERROR ::: $FILE does not exist."
-	exit 1
-fi
+	FILE=$(echo "$1" | tr -d '"')
+	if [ -f "$FILE" ]; then
+		echo "INFO ::: $FILE exists."
+	else 
+		echo "ERROR ::: $FILE does not exist."
+		exit 1
+	fi
 
 }
 
@@ -352,8 +350,8 @@ check_if_secret_exists() {
 
 	# Verify the Secret Exists
 	if [[ -n $USER_SECRET ]]; then
-		COMMAND=$(aws secretsmanager list-secrets --profile "${AWS_PROFILE}" --region "${AWS_REGION}" | jq -r '.SecretList[]| select(.Name == '\"$USER_SECRET\"') | {Name}' | jq -r '.Name')
-
+		# COMMAND=$(aws secretsmanager list-secrets --profile "${AWS_PROFILE}" --region "${AWS_REGION}" | jq -r '.SecretList[]| select(.Name == '\"$USER_SECRET\"') | {Name}' | jq -r '.Name')
+		COMMAND=$(aws secretsmanager describe-secret --secret-id $USER_SECRET --profile "$AWS_PROFILE" --region "$AWS_REGION" 2> /dev/null | jq -r .Name)
 		if [[ "$COMMAND" = "$USER_SECRET" ]]; then
 			### echo "INFO ::: Secret ${USER_SECRET} Exists. $RES"
 			echo "Y"
@@ -514,6 +512,35 @@ validate_aws_profile() {
 		echo "INFO ::: AWS profile Validation SUCCESS !!!"
 	fi
 }
+
+get_subnet_details(){
+	INPUT_SUBNET="$1"
+	echo "$INPUT_SUBNET"
+	SUBNET_CHECK=`aws ec2 describe-subnets --filters "Name=subnet-id,Values=$INPUT_SUBNET" --region $AWS_REGION --profile "$AWS_PROFILE"`
+	SUBNET=`echo $SUBNET_CHECK | jq -r '.Subnets[].SubnetId'`
+	SUBNET_VPC=`echo $SUBNET_CHECK | jq -r '.Subnets[].VpcId'`
+	VPC_IS="$SUBNET_VPC"
+	SUBNET_IS="$SUBNET"
+	AZ_IS=`echo $SUBNET_CHECK | jq -r '.Subnets[].AvailabilityZone'`
+	IS_PUBLIC_SUBNET=`echo $SUBNET_CHECK | jq -r '.Subnets[].MapPublicIpOnLaunch'`
+	if [ "$SUBNET_IS" == "" ] || [ "$SUBNET_IS" == "null" ] ; then
+		echo "ERROR ::: Provided subnet $INPUT_SUBNET not found !!!" 
+		exit 1
+	fi
+
+}
+
+get_default_subnet_details(){
+	AWS_REGION="$1"
+	AWS_PROFILE="$2"
+	DEFAULT_VPC=$(aws ec2 describe-vpcs --region $AWS_REGION --profile $AWS_PROFILE --query 'Vpcs[?(IsDefault==`true`)].VpcId | [0]' --output text)
+	DEFAULT_SN=$(aws ec2 describe-subnets --region $AWS_REGION --profile $AWS_PROFILE --filters "Name=vpc-id,Values=$DEFAULT_VPC" --query 'Subnets[?(DefaultForAz==`true`)].SubnetId | [0]' --output text)
+	SUBNET_CHECK=`aws ec2 describe-subnets --filters "Name=subnet-id,Values=$DEFAULT_SN" --region $AWS_REGION --profile "$AWS_PROFILE"`
+	AZ_OF_DEFAULT_SUBNET_IS=`echo $SUBNET_CHECK | jq -r '.Subnets[].AvailabilityZone'`
+	IGW_ID=`aws ec2 describe-internet-gateways --filters Name=attachment.vpc-id,Values=$DEFAULT_VPC --query "InternetGateways[].InternetGatewayId" | jq -r '.[0]'`
+}
+
+
 ########################## Create CRON ############################################################
 Schedule_CRON_JOB() {
 	NAC_SCHEDULER_IP_ADDR=$1
@@ -537,7 +564,7 @@ Schedule_CRON_JOB() {
 	####AWS command for getting instance-id
 	NACSCHEDULER_UID=$(aws ec2 describe-instances --query "Reservations[].Instances[].InstanceId" --filters "Name=tag:Name,Values='$NAC_SCHEDULER_NAME'" "Name=instance-state-name,Values=running"  --profile $AWS_PROFILE | jq '.[]'|tr -d '"')
 	echo "INFO ::: NACSCHEDULER_UID :: $NACSCHEDULER_UID which will be added for lambda layer::: "
-	
+	echo "INFO ::: USER_SECRET :: $USER_SECRET ::: "
 	echo "aws_profile="\"$AWS_PROFILE\" >>$TFVARS_FILE_NAME
 	echo "region="\"$AWS_REGION\" >>$TFVARS_FILE_NAME
 	echo "volume_name="\"$NMC_VOLUME_NAME\" >>$TFVARS_FILE_NAME
@@ -634,6 +661,7 @@ FREQUENCY="$3"         ### 3rd argument  ::: FREQUENCY
 FOURTH_ARG="$4"        ### 4th argument  ::: User Secret a KVP file Or an existing Secret
 NAC_INPUT_KVP="$5"     ### 5th argument  ::: User defined KVP file for passing arguments to NAC
 GIT_BRANCH="main"	   ### Setting Up default Git Branch as "main". For debugging change the value of your branch and execute.
+USE_PRIVATE_IP="N"
 # GIT_BRANCH="Optimization"
 echo "INFO ::: Validating Arguments Passed to NAC_Scheduler.sh"
 if [ "${#NMC_VOLUME_NAME}" -lt 3 ]; then
@@ -711,7 +739,7 @@ if [[ -n "$FOURTH_ARG" ]]; then
 	else ####  Fourth Argument is passed as User Secret Name
 		echo "INFO ::: Fourth Argument $FOURTH_ARG is passed as User Secret Name"
 		USER_SECRET="$FOURTH_ARG"
-		
+		echo "INFO ::: AWS_PROFILE ::: $AWS_PROFILE"
 		### Verify the Secret Exists
 		USER_SECRET_EXISTS=$(check_if_secret_exists $USER_SECRET ${AWS_PROFILE} ${AWS_REGION}) # | jq -r .Name)
 		echo "INFO ::: User secret Exists:: $USER_SECRET_EXISTS"
@@ -765,7 +793,23 @@ if [ "$OS_ADMIIN_SECRET_EXISTS" == "N" ]; then
 fi
 ######################## Check If NAC_ES_Security Available ###############################################
 NAC_ES_SECURITYGROUP_ID=""
-Create_NAC_ES_SecurityGroup ${USER_VPC_ID} ${AWS_PROFILE} ${AWS_REGION}
+if [ "$USER_SUBNET_ID" == "" ] || [ "$USER_SUBNET_ID" == "null" ] ; then
+	echo "ERROR ::: user_subnet_id Not provided in the user Secret"
+	get_default_subnet_details $AWS_REGION $AWS_PROFILE
+	echo "INFO ::: Found Default Subnet=$DEFAULT_SN in Default VPC=$DEFAULT_VPC ::: AZ of default SUBNET_IS=$AZ_OF_DEFAULT_SUBNET_IS "
+	SUBNET_IS=$DEFAULT_SN
+	USER_VPC_ID=$DEFAULT_VPC
+	AZ_IS=$AZ_OF_DEFAULT_SUBNET_IS
+	echo "INFO ::: Found Subnet $SUBNET_IS in VPC=$USER_VPC_ID ::: AZ is=$AZ_IS "
+	VPC_IS=$USER_VPC_ID
+else
+	echo "INFO ::: user_subnet_id provided in the user Secret as user_subnet_id=$USER_SUBNET_ID"  
+	get_subnet_details $USER_SUBNET_ID
+	echo "INFO ::: Found Subnet $SUBNET_IS in VPC=$VPC_IS ::: AZ is=$AZ_IS "
+	USER_VPC_ID=$VPC_IS
+fi
+
+Create_NAC_ES_SecurityGroup $USER_VPC_ID $AWS_PROFILE $AWS_REGION
 echo "INFO ::: NAC_ES_SecurityGroup :: $NAC_ES_SECURITYGROUP_ID"
 
 ######################## Check If ES Domain Available ###############################################
@@ -805,33 +849,6 @@ if [ "$NAC_SCHEDULER_IP_ADDR" != "" ]; then
 ###################### NAC Scheduler EC2 Instance is NOT Available ##############################
 else
 	## "NAC Scheduler is not present. Creating new EC2 machine."
-	if [ "$USER_VPC_ID" == "" ] || [ "$USER_VPC_ID" == "null" ]; then
-		echo "INFO ::: user_vpc_id not provided in the user Secret"  
-		if [ "$USER_SUBNET_ID" == "" ] || [ "$USER_SUBNET_ID" == "null" ]; then
-		### Both user_vpc_id and user_subnet_id not provided , It will take Default VPC and Subnet
-			echo "INFO ::: user_subnet_id not provided in the user Secret, Provisioning will be done in the Default VPC Subnet"
-		
-		else
-		### user_vpc_id not provided but, user_subnet_id provided 
-			echo "INFO ::: user_subnet_id provided in the user Secret as user_subnet_id=$USER_SUBNET_ID"  
-			check_if_subnet_exists $USER_SUBNET_ID $USER_VPC_ID
-
-		fi
-	else
-		### If user_vpc_id provided
-		if [ "$USER_SUBNET_ID" == "" ] || [ "$USER_SUBNET_ID" == "null" ]; then
-		### If user_vpc_id provided and user_subnet_id not Provided, It will take the provided VPC ID and its default Subnet
-			echo "INFO ::: user_subnet_id not provided in the user Secret, Provisioning will be done in the Provided VPC $USER_VPC_ID and its default Subnet"
-			check_if_vpc_exists $USER_VPC_ID
-
-		else
-		### If user_vpc_id provided and user_subnet_id Provided, It will take the provided VPC ID and provided Subnet
-			echo "INFO ::: user_vpc_id and user_subnet_id Provided in the user Secret, Provisioning will be done in the Provided VPC $USER_VPC_ID and Subnet $USER_SUBNET_ID"
-			# check_if_subnet_exists $USER_SUBNET_ID
-			check_if_subnet_exists $USER_SUBNET_ID $USER_VPC_ID
-
-		fi
-	fi
 	echo "INFO ::: NAC Scheduler Instance is not present. Creating new EC2 machine."
 	########## Download NAC Scheduler Instance Provisioning Code from GitHub ##########
 	### GITHUB_ORGANIZATION defaults to nasuni-labs
@@ -842,11 +859,9 @@ else
 	echo "INFO ::: $GIT_REPO"
 	echo "INFO ::: GIT_REPO_NAME - $GIT_REPO_NAME"
 	current_folder
-	# ls
 	rm -rf "${GIT_REPO_NAME}"
 	COMMAND="git clone -b $GIT_BRANCH ${GIT_REPO}"
 	$COMMAND
-	# exit 88888
 	RESULT=$?
 	if [ $RESULT -eq 0 ]; then
 		echo "INFO ::: git clone SUCCESS for repo ::: $GIT_REPO_NAME"
@@ -895,9 +910,15 @@ else
 	fi
 	if [[ "$USE_PRIVATE_IP" != "" ]]; then
 		echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$TFVARS_NAC_SCHEDULER
+	else
+		USE_PRIVATE_IP=N
+		echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$TFVARS_NAC_SCHEDULER
 	fi
 	echo "$TFVARS_NAC_SCHEDULER created"
 	echo `cat $TFVARS_NAC_SCHEDULER`
+	echo "INFO ::: use_private_ip - $USE_PRIVATE_IP"
+	echo "INFO ::: user_vpc_id - $VPC_IS"
+	echo "INFO ::: user_subnet_id - $SUBNET_IS"
 
 	dos2unix $TFVARS_NAC_SCHEDULER
 	COMMAND="terraform apply -var-file=$TFVARS_NAC_SCHEDULER -auto-approve"
@@ -929,4 +950,3 @@ secs=$((END - START))
 DIFF=$(printf '%02dh:%02dm:%02ds\n' $((secs / 3600)) $((secs % 3600 / 60)) $((secs % 60)))
 echo "INFO ::: Total execution Time ::: $DIFF !!!"
 )2>&1 | tee $LOG_FILE
-#exit 0
