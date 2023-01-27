@@ -208,6 +208,91 @@ check_if_opensearch_exists(){
 		
 }
 
+check_if_kendra_exists(){
+	echo "Kendra exists"
+	KENDRA_ADMIIN_SECRET="$1"
+	AWS_REGION="$2"
+	AWS_PROFILE="$3"
+	GITHUB_ORGANIZATION="$4"
+	NAC_ES_SECURITYGROUP_ID="$5"
+	KENDRA_DOMAIN_NAME="tt"
+	echo "INFO ::: KENDRA_ADMIIN_SECRET : $KENDRA_ADMIIN_SECRET"
+	echo "INFO ::: AWS_REGION : $AWS_REGION"
+	echo "INFO ::: AWS_PROFILE : $AWS_PROFILE"
+	echo "INFO ::: GITHUB_ORGANIZATION : $GITHUB_ORGANIZATION"
+	echo "INFO ::: NAC_ES_SECURITYGROUP_ID : $NAC_ES_SECURITYGROUP_ID"
+	KENDRA_DOMAIN_NAME=$(aws secretsmanager get-secret-value --secret-id "${KENDRA_ADMIIN_SECRET}" --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.index_id' 2> /dev/null)
+	echo "INFO ::: KENDRA_DOMAIN NAME : $KENDRA_DOMAIN_NAME"
+	IS_KENDRA="N"
+	if [ "$KENDRA_DOMAIN_NAME" == "" ] || [ "$KENDRA_DOMAIN_NAME" == null ]; then
+		echo "INFO ::: Amazon_Kendra_Service configuration is Not found in admin secret"
+		IS_KENDRA="N"
+	else	
+		KENDRA_AVL=$(aws kendra list-indices --profile nasuni | jq -r '.IndexConfigurationSummaryItems[]|select(.Id == '\"$KENDRA_DOMAIN_NAME\"' and .Status == "ACTIVE") | {Name}|'.[]'' 2> /dev/null)
+		# ES_CREATED=$(aws es describe-elasticsearch-domain --domain-name "${ES_DOMAIN_NAME}" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.DomainStatus.Created' 2> /dev/null)
+		# KENDRA_CREATED=$(echo $KENDRA_DATA | jq -r '.DomainStatus.Created' 2> /dev/null)
+		# if [ $? -eq 0 ]; then
+		if [[ $KENDRA_AVL != "" ]]; then
+			echo "INFO ::: KENDRA_AVL : $KENDRA_DOMAIN_NAME with ACTIVE status"
+			IS_KENDRA="Y"
+
+		else
+			echo "INFO ::: Amazon_Kendra_Service ::: $KENDRA_DOMAIN_NAME not found"
+			IS_KENDRA="N"
+		fi
+		echo "INFO ::: IS_KENDRA : $IS_KENDRA "
+	fi
+	if [ "$IS_KENDRA" == "N" ]; then
+		echo "INFO ::: Amazon_Kendra_Service is Not Configured. Need to Provision Amazon_Kendra_Service Before, NAC Provisioning."
+		echo "INFO ::: Begin Amazon_Kendra_Service Provisioning."
+		REPO_FOLDER="nasuni-amazonkendra"
+		validate_github $GITHUB_ORGANIZATION $REPO_FOLDER
+		echo "INFO ::: BEGIN - Git Clone !!!"
+		### Download Provisioning Code from GitHub
+		GIT_REPO_NAME=$(echo ${GIT_REPO} | sed 's/.*\/\([^ ]*\/[^.]*\).*/nasuni-\1/' | cut -d "/" -f 2)
+		echo "INFO ::: GIT_REPO $GIT_REPO , GIT_BRANCH $GIT_BRANCH"
+		echo "INFO ::: GIT_REPO_NAME $GIT_REPO_NAME"
+		current_folder
+		echo "INFO ::: Removing ${GIT_REPO_NAME}"
+		rm -rf "${GIT_REPO_NAME}"
+		current_folder
+		COMMAND="git clone -b $GIT_BRANCH ${GIT_REPO}"
+		$COMMAND
+		RESULT=$?
+		if [ $RESULT -eq 0 ]; then
+			echo "INFO ::: FINISH ::: GIT clone SUCCESS for repo ::: $GIT_REPO_NAME"
+		else
+			echo "INFO ::: FINISH ::: GIT Clone FAILED for repo ::: $GIT_REPO_NAME"
+			exit 1
+		fi
+		cd "${GIT_REPO_NAME}"
+		current_folder
+		####Create the requrired roles and policies######################
+		####Check if kendra role is present #############################
+		# ROLE_NAME_FOR_KENDRA="nasuni-labs-aws-kendra-role"
+		# POLICY_NAME_FOR_KENDRA="nasuni-labs-kendra-load-data-policy"
+		# CHECK_IS=$(aws iam list-role-policies --role-name "${ROLE_NAME_FOR_KENDRA}" --profile "${AWS_PROFILE}" | jq '.PolicyNames[]' 2> /dev/null)
+		# if [ "$CHECK_IS" != "" ]; then
+		# 	aws iam create-role --role-name "${ROLE_NAME_FOR_KENDRA}" --assume-role-policy-document file://trust-policy.json --profile "${AWS_PROFILE}"
+		# 	RES="$?"
+		# 	if [ $RES -ne 0 ]; then
+		# 		echo "ERROR ::: $RES Failed to Create Role $ROLE_NAME_FOR_KENDRA as, its already exists."
+		# 		exit 1
+		# 	elif [ $RES -eq 0 ]; then
+		# 		echo "INFO ::: Role $ROLE_NAME_FOR_KENDRA Created"
+		# 	fi
+		# 	aws iam put-role-policy --role-name "${ROLE_NAME_FOR_KENDRA}" --policy-name "${POLICY_NAME_FOR_KENDRA}" --policy-document file://kendra_policies.json --profile "${AWS_PROFILE}"
+		# 	RES="$?"
+		# 	if [ $RES -ne 0 ]; then
+		# 		echo "ERROR ::: $RES Failed to Create Policy $POLICY_NAME_FOR_KENDRA as, its already exists."
+		# 		exit 1
+		# 	elif [ $RES -eq 0 ]; then
+		# 		echo "INFO ::: Policy $POLICY_NAME_FOR_KENDRA Created"
+		# 	fi			
+	fi
+	exit 1
+}
+
 check_if_vpc_exists(){
 	INPUT_VPC="$1"
 
@@ -645,6 +730,27 @@ Schedule_CRON_JOB() {
 	fi
 }
 
+Create_secret() {
+		## Fourth argument is a File && the User Secret Doesn't exist ==> User wants to Create a new Secret
+	### Create Secret
+	
+	OS_ADMIIN_SECRET="$1"
+	AWS_REGION="$2"
+	AWS_PROFILE="$3"
+	echo "INFO ::: Create Secret $OS_ADMIIN_SECRET"
+	aws secretsmanager create-secret --name "${OS_ADMIIN_SECRET}" \
+		--description "Preserving OpenSearch specific data/secrets" \
+		--region "${AWS_REGION}" --profile "${AWS_PROFILE}"
+			RES="$?"
+			if [ $RES -ne 0 ]; then
+				echo "ERROR ::: $RES Failed to Create Secret $OS_ADMIIN_SECRET as, its already exists."
+				exit 1
+			elif [ $RES -eq 0 ]; then
+				echo "INFO ::: Secret $OS_ADMIIN_SECRET Created"
+			fi
+	
+}
+
 ##################################### START - SCRIPT Execution HERE ##################################################
 
 if [ $# -eq 0 ]; then
@@ -774,22 +880,11 @@ OS_ADMIIN_SECRET_EXISTS=""
 OS_ADMIIN_SECRET_EXISTS=$(check_if_secret_exists $OS_ADMIIN_SECRET $AWS_PROFILE $AWS_REGION)
 echo "INFO ::: OS_ADMIIN_SECRET_EXISTS ::: $OS_ADMIIN_SECRET_EXISTS "
 
+
 if [ "$OS_ADMIIN_SECRET_EXISTS" == "N" ]; then
-	## Fourth argument is a File && the User Secret Doesn't exist ==> User wants to Create a new Secret
-	### Create Secret
-	echo "INFO ::: Create Secret $OS_ADMIIN_SECRET"
-	aws secretsmanager create-secret --name "${OS_ADMIIN_SECRET}" \
-		--description "Preserving OpenSearch specific data/secrets" \
-		--region "${AWS_REGION}" --profile "${AWS_PROFILE}"
-			RES="$?"
-			if [ $RES -ne 0 ]; then
-				echo "ERROR ::: $RES Failed to Create Secret $OS_ADMIIN_SECRET as, its already exists."
-				exit 1
-			elif [ $RES -eq 0 ]; then
-				echo "INFO ::: Secret $OS_ADMIIN_SECRET Created"
-			fi
-		else
-			echo "INFO ::: Secret $OS_ADMIIN_SECRET Already Exists"
+	Create_secret $OS_ADMIIN_SECRET $AWS_REGION $AWS_PROFILE 
+else
+	echo "INFO ::: Secret $OS_ADMIIN_SECRET Already Exists"
 fi
 ######################## Check If NAC_ES_Security Available ###############################################
 NAC_ES_SECURITYGROUP_ID=""
@@ -812,8 +907,28 @@ fi
 Create_NAC_ES_SecurityGroup $USER_VPC_ID $AWS_PROFILE $AWS_REGION
 echo "INFO ::: NAC_ES_SecurityGroup :: $NAC_ES_SECURITYGROUP_ID"
 
-######################## Check If ES Domain Available ###############################################
-check_if_opensearch_exists $OS_ADMIIN_SECRET $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $NAC_ES_SECURITYGROUP_ID
+########################Create KENDRA Admin Secret, If its not available ###############
+
+KENDRA_ADMIIN_SECRET="nasuni-labs-kendra-admin"
+KENDRA_ADMIIN_SECRET_EXISTS=""
+KENDRA_ADMIIN_SECRET_EXISTS=$(check_if_secret_exists $KENDRA_ADMIIN_SECRET $AWS_PROFILE $AWS_REGION)
+echo "INFO ::: KENDRA_ADMIIN_SECRET_EXISTS ::: $KENDRA_ADMIIN_SECRET_EXISTS "
+
+
+if [ "$KENDRA_ADMIIN_SECRET_EXISTS" == "N" ]; then
+	Create_secret $KENDRA_ADMIIN_SECRET $AWS_REGION $AWS_PROFILE 
+else
+	echo "INFO ::: Secret $KENDRA_ADMIIN_SECRET Already Exists"
+fi
+
+######################## Check If ES/KENDRA/ Domain Available ###############################################
+if [ "$ANALYTICS_SERVICE" = "ES" ] || [ "$ANALYTICS_SERVICE" = "OS" ]; then
+	check_if_opensearch_exists $OS_ADMIIN_SECRET $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $NAC_ES_SECURITYGROUP_ID
+elif [ "$ANALYTICS_SERVICE" = "KENDRA" ]; then
+	check_if_kendra_exists $KENDRA_ADMIIN_SECRET $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $NAC_ES_SECURITYGROUP_ID
+else
+	echo "Invalid Input for KENDRA/ES"
+fi
 
 echo "INFO ::: Get IP Address of NAC Scheduler Instance"
 ######################  NAC Scheduler Instance is Available ##############################
