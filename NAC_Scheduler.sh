@@ -267,6 +267,33 @@ check_if_kendra_exists(){
 		fi
 		cd "${GIT_REPO_NAME}"
 		current_folder
+		echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: Creating TFVARS File."
+		##### RUN terraform init
+		echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: BEGIN ::: Executing ::: Terraform init . . . . . . . . "
+		COMMAND="terraform init"
+		$COMMAND
+		echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: FINISH - Executing ::: Terraform init."
+
+		##### RUN terraform Apply		
+
+		KENDRA_TFVARS="Kendra.tfvars"
+		echo "aws_profile="\"$AWS_PROFILE\" >$KENDRA_TFVARS
+		echo "kendra_admin_secret="\"$KENDRA_ADMIIN_SECRET\" >>$KENDRA_TFVARS
+		echo "" >>$KENDRA_TFVARS
+		echo "INFO ::: TFVARS $OS_TFVARS File created for OpenSearch Provisioning"
+		echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
+		chmod 755 $(pwd)/*
+		COMMAND="terraform apply -var-file=$KENDRA_TFVARS -auto-approve"
+		$COMMAND
+		if [ $? -eq 0 ]; then
+			echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: FINISH ::: Executing ::: Terraform apply ::: SUCCESS"
+		else
+			echo "ERROR ::: Amazon_OpenSearch_Service provisioning ::: FINISH ::: Executing ::: Terraform apply ::: FAILED "
+			exit 1
+		fi
+		cd ..
+
+
 		####Create the requrired roles and policies######################
 		####Check if kendra role is present #############################
 		# ROLE_NAME_FOR_KENDRA="nasuni-labs-aws-kendra-role"
