@@ -317,7 +317,7 @@ check_if_kendra_exists(){
 		# 		echo "INFO ::: Policy $POLICY_NAME_FOR_KENDRA Created"
 		# 	fi			
 	fi
-	exit 1
+	# exit 1
 }
 
 check_if_vpc_exists(){
@@ -656,6 +656,7 @@ get_default_subnet_details(){
 ########################## Create CRON ############################################################
 Schedule_CRON_JOB() {
 	NAC_SCHEDULER_IP_ADDR=$1
+	ANALYTICS_SERVICE=$2
 	PEM="$PEM_KEY_PATH"
 	check_if_pem_file_exists $PEM
 
@@ -689,6 +690,7 @@ Schedule_CRON_JOB() {
 	echo "nac_scheduler_name="\"$NAC_SCHEDULER_NAME\" >>$TFVARS_FILE_NAME
 	echo "nac_es_securitygroup_id="\"$NAC_ES_SECURITYGROUP_ID\" >>$TFVARS_FILE_NAME
 	echo "nacscheduler_uid="\"$NACSCHEDULER_UID\" >>$TFVARS_FILE_NAME
+	echo "service_name="\"$ANALYTICS_SERVICE\" >>$TFVARS_FILE_NAME
 	if [[ "$USE_PRIVATE_IP" == "Y" ]]; then
 		echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$TFVARS_FILE_NAME
 	fi
@@ -986,7 +988,7 @@ if [ "$NAC_SCHEDULER_IP_ADDR" != "" ]; then
 	add_ip_to_sec_grp $NAC_SCHEDULER_IP_ADDR $NAC_SCHEDULER_NAME
 	### nmc endpoint accessibility $NAC_SCHEDULER_NAME $NAC_SCHEDULER_IP_ADDR
 	nmc_endpoint_accessibility  $NAC_SCHEDULER_NAME $NAC_SCHEDULER_IP_ADDR $NMC_API_ENDPOINT $NMC_API_USERNAME $NMC_API_PASSWORD #458
-	Schedule_CRON_JOB $NAC_SCHEDULER_IP_ADDR
+	Schedule_CRON_JOB $NAC_SCHEDULER_IP_ADDR $ANALYTICS_SERVICE
 
 ###################### NAC Scheduler EC2 Instance is NOT Available ##############################
 else
@@ -1081,7 +1083,7 @@ else
 	add_ip_to_sec_grp ${NAC_SCHEDULER_IP_ADDR}
 	## nmc endpoint accessibility $NAC_SCHEDULER_NAME $NAC_SCHEDULER_IP_ADDR
 	nmc_endpoint_accessibility  $NAC_SCHEDULER_NAME ${NAC_SCHEDULER_IP_ADDR} $NMC_API_ENDPOINT $NMC_API_USERNAME $NMC_API_PASSWORD #458
-	Schedule_CRON_JOB $NAC_SCHEDULER_IP_ADDR
+	Schedule_CRON_JOB $NAC_SCHEDULER_IP_ADDR $ANALYTICS_SERVICE
 	## Setup_Search_Lambda
 	## Setup_Search_UI
 

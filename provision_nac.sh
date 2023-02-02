@@ -42,6 +42,8 @@ START=$(date +%s)
 				"frequency") FREQUENCY="$value" ;;
 				"nac_scheduler_name") NAC_SCHEDULER_NAME="$value" ;;
 				"nac_es_securitygroup") NAC_ES_SECURITYGROUP="$value" ;;
+				"service_name") SERVICE_NAME="$value" ;;
+
 			esac
 		done < "$file"
 	}
@@ -114,10 +116,17 @@ GIT_BRANCH=$(echo "$GIT_BRANCH" | tr -d '"')
 GITHUB_ORGANIZATION=$(echo "$GITHUB_ORGANIZATION" | tr -d '"')
 NAC_SCHEDULER_NAME=$(echo "$NAC_SCHEDULER_NAME" | tr -d '"')
 NAC_ES_SECURITYGROUP=$(echo "$NAC_ES_SECURITYGROUP" | tr -d '"')
+SERVICE_NAME=$(echo "$SERVICE_NAME" | tr -d '"')
+
 echo NAC_SCHDULER_NAME $NAC_SCHEDULER_NAME
-OS_ADMIIN_SECRET="nasuni-labs-os-admin"
+echo SERVICE_NAME $SERVICE_NAME
 
 
+if [ "$SERVICE_NAME" == "ES" ]; then
+	OS_ADMIIN_SECRET="nasuni-labs-os-admin"
+else
+	OS_ADMIIN_SECRET="nasuni-labs-kendra-admin"
+fi
 ##################################### START TRACKER JSON Creation ###################################################################
 
 echo "NAC_Activity : Export In Progress"
@@ -155,11 +164,17 @@ echo "INFO ::: current user :-"`whoami`
 ########## Download NAC Provisioning Code from GitHub ##########
 ### GITHUB_ORGANIZATION defaults to nasuni-labs
 # REPO_FOLDER="nasuni-analyticsconnector-opensearch"
-if [ "$USE_PRIVATE_IP" == "N" ] || [ "$USE_PRIVATE_IP" == null ] || [ "$USE_PRIVATE_IP" == "" ]; then
-        REPO_FOLDER="nasuni-analyticsconnector-opensearch-public"
+if [ "$SERVICE_NAME" == "ES" ]; then 
+	if [ "$USE_PRIVATE_IP" == "N" ] || [ "$USE_PRIVATE_IP" == null ] || [ "$USE_PRIVATE_IP" == "" ]; then
+        	REPO_FOLDER="nasuni-analyticsconnector-opensearch-public"
+	else
+	        REPO_FOLDER="nasuni-analyticsconnector-opensearch"
+	fi
 else
-        REPO_FOLDER="nasuni-analyticsconnector-opensearch"
+	REPO_FOLDER="nasuni-analyticsconnector-kendra"
 fi
+#exit 1
+echo "INFO ::: REPO_FOLDER - $REPO_FOLDER !!!"
 validate_github $GITHUB_ORGANIZATION $REPO_FOLDER
 ########################### Git Clone : NAC Provisioning Repo ###############################################################
 echo "INFO ::: BEGIN - Git Clone !!!"
