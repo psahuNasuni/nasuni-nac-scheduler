@@ -1058,6 +1058,8 @@ else
 		USE_PRIVATE_IP=N
 		echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$TFVARS_NAC_SCHEDULER
 	fi
+	echo "INFO ::: service_name - $ANALYTICS_SERVICE"
+	echo "service_name="\"$ANALYTICS_SERVICE\" >>$TFVARS_NAC_SCHEDULER
 	echo "$TFVARS_NAC_SCHEDULER created"
 	echo `cat $TFVARS_NAC_SCHEDULER`
 	echo "INFO ::: use_private_ip - $USE_PRIVATE_IP"
