@@ -328,6 +328,19 @@ echo "INFO ::: CleanUp Flag: $CLEANUP"
 #if [ "$CLEANUP" == "Y" ]; then
 echo "INFO ::: Lambda execution COMPLETED."
 echo "INFO ::: STARTED ::: CLEANUP NAC STACK and dependent resources . . . . . . . . . . . . . . . . . . . . ."
+
+pwd
+echo "INFO ::: pwd" pwd
+UNIQUE_ID=$(cat nac_uniqui_id.txt | cut -d - -f4)
+echo "INFO ::: UNIQUE_ID ::: $UNIQUE_ID "
+
+aws s3 rm --recursive s3://nasuni-share-data-bucket-storage/nmc_api_data_$UNIQUE_ID/ --profile ${AWS_PROFILE}
+if [ $? -eq 0 ]; then
+        echo "INFO ::: deleted files from nasuni-share-data-bucket-storage bucket and folder nmc_api_data_$UNIQUE_ID"      
+else
+        echo "INFO ::: Error in deleted files from nasuni-share-data-bucket-storage bucket and folder nmc_api_data_$UNIQUE_ID"
+fi
+
 # ##### RUN terraform destroy to CLEANUP NAC STACK and dependent resources
 
 COMMAND="terraform destroy -var-file=${TFVARS_FILE} -auto-approve"
