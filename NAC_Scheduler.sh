@@ -706,7 +706,16 @@ Schedule_CRON_JOB() {
 	elif [ $RES -eq 0 ]; then
 		echo "INFO ::: create_layer.sh Uploaded Successfully to NAC_Scheduer Instance."
 	fi
-	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sudo cp tracker_json.py /var/www/Tracker_UI/docs/"
+	if [[ "$ANALYTICS_SERVICE" == "ES" ]]; then
+		ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sudo cp tracker_json.py /var/www/Tracker_UI/docs/"
+		RES="$?"
+		if [ $RES -ne 0 ]; then
+			echo "ERROR ::: Failed to copy tracker_json.py to /var/www/Tracker_UI/docs/."
+			exit 1
+		elif [ $RES -eq 0 ]; then
+			echo "INFO ::: copy tracker_json.py to /var/www/Tracker_UI/docs/ Successfully to NAC_Scheduer Instance."
+		fi	
+	fi
 	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "dos2unix create_layer.sh" #SSA
 	RES="$?"
 	if [ $RES -ne 0 ]; then
@@ -726,6 +735,20 @@ Schedule_CRON_JOB() {
 	fi
 	### Create Directory for each Volume
 	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $CRON_DIR_NAME ] && mkdir $CRON_DIR_NAME "
+	KENDRA_TRACKER_JSON_FOLDER="kendra_tracker_json_folder"
+	if [[ "$ANALYTICS_SERVICE" == "KENDRA" ]]; then
+		#ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $KENDRA_TRACKER_JSON_FOLDER ] && mkdir $KENDRA_TRACKER_JSON_FOLDER "
+		scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null  tracker_json_kendra.py ubuntu@$NAC_SCHEDULER_IP_ADDR:~/ #SSA
+		ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sudo cp tracker_json_kendra.py /var/www/Tracker_UI/docs/"
+		RES="$?"
+		if [ $RES -ne 0 ]; then
+			echo "ERROR ::: Failed to Copy tracker_json_kendra.py to NAC_Scheduer Instance."
+			exit 1
+		elif [ $RES -eq 0 ]; then
+			echo "INFO ::: tracker_json_kendra.py Uploaded Successfully to NAC_Scheduer Instance."
+		fi
+	fi
+
 	### Copy TFVARS and provision_nac.sh to NACScheduler
 	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null provision_nac.sh "$TFVARS_FILE_NAME" ubuntu@$NAC_SCHEDULER_IP_ADDR:~/$CRON_DIR_NAME
 
