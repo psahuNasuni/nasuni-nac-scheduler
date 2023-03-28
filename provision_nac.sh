@@ -172,7 +172,7 @@ if [ "$SERVICE_NAME" == "ES" ]; then
 	CURRENT_STATE="Export-In-progress"
 	LATEST_TOC_HANDLE_PROCESSED="-"
 	echo "INFO ::: Nach sheduler name: " ${NAC_SCHEDULER_NAME}
-	JSON_FILE_PATH="/var/www/Tracker_UI/docs/${NAC_SCHEDULER_NAME}_tracker.json"
+	JSON_FILE_PATH="/var/www/Tracker_UI/docs/${NAC_SCHEDULER_NAME}_tracker_ES.json"
 	echo "INFO ::: JSON_FILE_PATH:" $JSON_FILE_PATH
 	if [ -f "$JSON_FILE_PATH" ] ; then
 		TRACEPATH="${NMC_VOLUME_NAME}_${ANALYTICS_SERVICE}"
@@ -202,8 +202,8 @@ else
 	CURRENT_STATE="Export-In-progress"
 	LATEST_TOC_HANDLE_PROCESSED="-"
 	echo "INFO ::: Nach sheduler name: " ${NAC_SCHEDULER_NAME}
-	#JSON_FILE_PATH="/home/ubuntu/kendra_tracker_json_folder/${NAC_SCHEDULER_NAME}_tracker.json"
-	JSON_FILE_PATH="/var/www/Tracker_UI/docs/${NAC_SCHEDULER_NAME}_tracker.json"
+	#JSON_FILE_PATH="/home/ubuntu/kendra_tracker_json_folder/${NAC_SCHEDULER_NAME}_tracker_KENDRA.json"
+	JSON_FILE_PATH="/var/www/Tracker_UI/docs/${NAC_SCHEDULER_NAME}_tracker_KENDRA.json"
 
 	echo "INFO ::: JSON_FILE_PATH:" $JSON_FILE_PATH
 	KENDRA_URL="https://$AWS_REGION.console.aws.amazon.com/kendra/home?region=$AWS_REGION#indexes/$INDEX_ID/search"

@@ -652,6 +652,34 @@ get_default_subnet_details(){
 	IGW_ID=`aws ec2 describe-internet-gateways --filters Name=attachment.vpc-id,Values=$DEFAULT_VPC --query "InternetGateways[].InternetGatewayId" | jq -r '.[0]'`
 }
 
+UI_Deployment(){
+	ANALYTICS_SERVICE="$1"
+	AWS_REGION="$2"
+	AWS_PROFILE="$3"
+	GITHUB_ORGANIZATION="$4"
+	GIT_BRANCH="$5"
+
+	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "dos2unix ~/UI_deploy_kendra_es/*" #SSA
+	RES="$?"
+	if [ $RES -ne 0 ]; then
+		echo "ERROR ::: Failed to do dos2unix UI_deploy_kendra_es to NAC_Scheduer Instance."
+		exit 1
+	elif [ $RES -eq 0 ]; then
+		echo "INFO ::: I_deploy_kendra_es folder executed dos2unix Successfully to NAC_Scheduer Instance."
+	fi
+	#IAM_USER to be defined. et user 
+	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "cd ~/UI_deploy_kendra_es && ./UI_deployment_kendra.sh $ANALYTICS_SERVICE $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $GIT_BRANCH" 
+	RES="$?"
+	if [ $RES -ne 0 ]; then
+		echo "ERROR ::: UI_Deployment :: Failed to execute UI_deployment_kendra.sh to NAC_Scheduer Instance."
+		exit 1
+	elif [ $RES -eq 0 ]; then
+		echo "INFO ::: UI_Deployment :: UI_deployment_kendra.sh executed Successfully to NAC_Scheduer Instance."
+	fi
+
+
+}
+
 
 ########################## Create CRON ############################################################
 Schedule_CRON_JOB() {
@@ -661,7 +689,7 @@ Schedule_CRON_JOB() {
 	check_if_pem_file_exists $PEM
 
 	chmod 400 $PEM
-
+	 
 	echo "INFO ::: Scheduling CRON_JOB :: Public IP Address:- $NAC_SCHEDULER_IP_ADDR"
 	echo "ssh -i "$PEM" ubuntu@$NAC_SCHEDULER_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null"
 	### Create TFVARS File for PROVISION_NAC.SH which is Used by CRON JOB - to Provision NAC Stack
@@ -698,6 +726,9 @@ Schedule_CRON_JOB() {
 		echo "INFO ::: $ARG_COUNT th Argument is supplied as ::: $NAC_INPUT_KVP"
 		append_nac_keys_values_to_tfvars $NAC_INPUT_KVP $TFVARS_FILE_NAME
 	fi
+	###UI deplyment
+	UI_Deployment $ANALYTICS_SERVICE $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $GIT_BRANCH
+
 	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null create_layer.sh tracker_json.py ubuntu@$NAC_SCHEDULER_IP_ADDR:~/ #SSA
 	RES="$?"
 	if [ $RES -ne 0 ]; then
@@ -707,6 +738,8 @@ Schedule_CRON_JOB() {
 		echo "INFO ::: create_layer.sh Uploaded Successfully to NAC_Scheduer Instance."
 	fi
 	if [[ "$ANALYTICS_SERVICE" == "ES" ]]; then
+		# Kendra_UI_Deployment $ANALYTICS_SERVICE $AWS_REGION $AWS_PROFILE
+		# scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "$TFVARS_FILE_NAME" ubuntu@$NAC_SCHEDULER_IP_ADDR:~/
 		ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sudo cp tracker_json.py /var/www/Tracker_UI/docs/"
 		RES="$?"
 		if [ $RES -ne 0 ]; then
@@ -738,6 +771,7 @@ Schedule_CRON_JOB() {
 	KENDRA_TRACKER_JSON_FOLDER="kendra_tracker_json_folder"
 	if [[ "$ANALYTICS_SERVICE" == "KENDRA" ]]; then
 		#ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $KENDRA_TRACKER_JSON_FOLDER ] && mkdir $KENDRA_TRACKER_JSON_FOLDER "
+		# ES_UI_Deployment
 		scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null  tracker_json_kendra.py ubuntu@$NAC_SCHEDULER_IP_ADDR:~/ #SSA
 		ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sudo cp tracker_json_kendra.py /var/www/Tracker_UI/docs/"
 		RES="$?"
@@ -1009,6 +1043,29 @@ if [ "$NAC_SCHEDULER_IP_ADDR" != "" ]; then
 	echo "INFO ::: NAC Scheduler Instance is Available. IP Address: $NAC_SCHEDULER_IP_ADDR"
 	### Call this function to add Local public IP to Security group of NAC_SCHEDULER IP
 	add_ip_to_sec_grp $NAC_SCHEDULER_IP_ADDR $NAC_SCHEDULER_NAME
+	###UI development
+	# echo "INFO ::: NAC_SCHEDULER_IP_ADDR :: $NAC_SCHEDULER_IP_ADDR"
+	# PEM="$PEM_KEY_PATH"
+	# check_if_pem_file_exists $PEM
+	# chmod 400 $PEM
+	# UI_DEPLOY_FOLDER="UI_deploy_kendra_es"
+	# ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $UI_DEPLOY_FOLDER ] && mkdir $UI_DEPLOY_FOLDER "
+	# RES="$?"
+	# if [ $RES -ne 0 ]; then
+	# 	echo "ERROR ::: Failed to create folder $UI_DEPLOY_FOLDER to NAC_Scheduer Instance."
+	# 	exit 1
+	# elif [ $RES -eq 0 ]; then
+	# 	echo "INFO ::: $UI_DEPLOY_FOLDER folder created Successfully to NAC_Scheduer Instance."
+	# fi
+	# scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null UI_deployment_kendra.sh $TFVARS_NAC_SCHEDULER ubuntu@$NAC_SCHEDULER_IP_ADDR:~/$UI_DEPLOY_FOLDER #SSA
+	# RES="$?"
+	# if [ $RES -ne 0 ]; then
+	# 	echo "ERROR ::: Failed to Copy UI_deployment_kendra.sh $TFVARS_NAC_SCHEDULER  to NAC_Scheduer Instance."
+	# 	exit 1
+	# elif [ $RES -eq 0 ]; then
+	# 	echo "INFO ::: UI_deployment_kendra.sh $TFVARS_NAC_SCHEDULER Uploaded Successfully to NAC_Scheduer Instance."
+	# fi
+	# exit 99
 	### nmc endpoint accessibility $NAC_SCHEDULER_NAME $NAC_SCHEDULER_IP_ADDR
 	nmc_endpoint_accessibility  $NAC_SCHEDULER_NAME $NAC_SCHEDULER_IP_ADDR $NMC_API_ENDPOINT $NMC_API_USERNAME $NMC_API_PASSWORD #458
 	Schedule_CRON_JOB $NAC_SCHEDULER_IP_ADDR $ANALYTICS_SERVICE
@@ -1106,6 +1163,31 @@ else
 	current_folder
 	## Call this function to add Local public IP to Security group of NAC_SCHEDULER IP
 	add_ip_to_sec_grp ${NAC_SCHEDULER_IP_ADDR}
+	###UI development
+	echo "INFO ::: NAC_SCHEDULER_IP_ADDR :: $NAC_SCHEDULER_IP_ADDR"
+	PEM="$PEM_KEY_PATH"
+	check_if_pem_file_exists $PEM
+	chmod 400 $PEM
+	UI_DEPLOY_FOLDER="UI_deploy_kendra_es"
+	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $UI_DEPLOY_FOLDER ] && mkdir $UI_DEPLOY_FOLDER "
+	RES="$?"
+	if [ $RES -ne 0 ]; then
+		echo "ERROR ::: Failed to create folder $UI_DEPLOY_FOLDER to NAC_Scheduer Instance."
+		exit 1
+	elif [ $RES -eq 0 ]; then
+		echo "INFO ::: $UI_DEPLOY_FOLDER folder created Successfully to NAC_Scheduer Instance."
+	fi
+	# cd "${GIT_REPO_NAME}"
+	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null UI_deployment_kendra.sh "${GIT_REPO_NAME}"/$TFVARS_NAC_SCHEDULER ubuntu@$NAC_SCHEDULER_IP_ADDR:~/$UI_DEPLOY_FOLDER #SSA
+	RES="$?"
+	if [ $RES -ne 0 ]; then
+		echo "ERROR ::: Failed to Copy UI_deployment_kendra.sh $TFVARS_NAC_SCHEDULER  to NAC_Scheduer Instance."
+		exit 1
+	elif [ $RES -eq 0 ]; then
+		echo "INFO ::: UI_deployment_kendra.sh $TFVARS_NAC_SCHEDULER Uploaded Successfully to NAC_Scheduer Instance."
+	fi
+	# cd ../
+
 	## nmc endpoint accessibility $NAC_SCHEDULER_NAME $NAC_SCHEDULER_IP_ADDR
 	nmc_endpoint_accessibility  $NAC_SCHEDULER_NAME ${NAC_SCHEDULER_IP_ADDR} $NMC_API_ENDPOINT $NMC_API_USERNAME $NMC_API_PASSWORD #458
 	Schedule_CRON_JOB $NAC_SCHEDULER_IP_ADDR $ANALYTICS_SERVICE

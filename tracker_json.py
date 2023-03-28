@@ -74,7 +74,7 @@ def combined_tracker_UI(os_url, kibana_url, default_url, frequency, user_secret,
     tracker_UI: Going to create the dynamic json file
     """ 
     integration_name = volume + "_" + service
-    tracker_json_filename = nac_scheduler_name + "_tracker.json"
+    tracker_json_filename = nac_scheduler_name + "_tracker_ES.json"
 
     if is_file_exist(tracker_dir, tracker_json_filename):
         # Load the integration json file

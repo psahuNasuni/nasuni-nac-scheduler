@@ -75,7 +75,7 @@ def combined_tracker_UI(index_name, index_id, default_url, frequency, user_secre
     tracker_UI: Going to create the dynamic json file
     """ 
     integration_name = volume + "_" + service
-    tracker_json_filename = nac_scheduler_name + "_tracker.json"
+    tracker_json_filename = nac_scheduler_name + "_tracker_KENDRA.json"
 
     if is_file_exist(tracker_dir, tracker_json_filename):
         # Load the integration json file
