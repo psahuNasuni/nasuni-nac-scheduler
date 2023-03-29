@@ -56,11 +56,19 @@ TFVARS_NAC_SCHEDULER="NACScheduler.tfvars"
 REPO_FOLDER="nasuni-opensearch-userinterface-public"
 echo "INFO ::: Check if Deployment is already done"
 FLAG="N"
-#if [ -d "$REPO_FOLDER" ]; then
+echo "INFO ::: GIT BRANCH : $GIT_BRANCH"
+if [ -d "$REPO_FOLDER" ]; then
     echo "INFO ::: $REPO_FOLDER does exist. UI installation is already there"
     FLAG="Y"
-#fi
-#if [[ "$FLAG" == "N" ]]; then
+    cd "${REPO_FOLDER}"
+    echo "$REPO_FOLDER"
+    COMMAND="git pull origin $GIT_BRANCH"
+    $COMMAND
+    current_folder
+    cd ../
+
+fi
+if [[ "$FLAG" == "N" ]]; then
     	echo "INFO ::: FLAG $FLAG Download code from git"
 
 	validate_github $GITHUB_ORGANIZATION $REPO_FOLDER 
@@ -90,9 +98,9 @@ FLAG="N"
         sudo ./DeployNasuniWeb.sh
 	#cd "${REPO_FOLDER}"
 	
-#fi
+fi
 current_folder
-FILE=$(ls nasuni-opensearch-userinterface-public/search-api* 2>/dev/null)
+FILE=$(ls $REPO_FOLDER/search-api* 2>/dev/null)
 FILE_FLAG="N"
 #[ -f "nasuni-opensearch-userinterface-public/search-api*" ] && FILE_FLAG="Y"
 SEARCH_API=""
@@ -109,7 +117,6 @@ fi
 
 source ~/UI_deploy_kendra_es/${REPO_FOLDER}/NACScheduler.tfvars
 echo "INFO ::: nac-scheduler-name $nac_scheduler_name"
-
 if [[ "$ANALYTICS_SERVICE" == "ES" ]]; then
 
 	if [ "$SEARCH_API" == "" ] || [ "$SEARCH_API" == "null" ] ; then
@@ -152,6 +159,8 @@ elif [[ "$ANALYTICS_SERVICE" == "KENDRA" ]]; then
 sed -i 's#var schedulerName.*$#var schedulerName = \"'${nac_scheduler_name}'\"; #g' ~/UI_deploy_kendra_es/${REPO_FOLDER}/Tracker_UI/docs/fetch.js
 	#sudo rm -rf /var/www/Tracker_UI
 	sudo cp -rf ~/UI_deploy_kendra_es/${REPO_FOLDER}/Tracker_UI /var/www/.
+	sudo cp -rf ~/UI_deploy_kendra_es/${REPO_FOLDER}/SearchUI_Web /var/www/.
+
 	sudo service apache2 restart
 
 	
