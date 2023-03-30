@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash 
 
 ANALYTICS_SERVICE="$1"
 AWS_REGION="$2"
@@ -52,8 +52,35 @@ current_folder()
 }
 ######Start Exec
 TFVARS_NAC_SCHEDULER="NACScheduler.tfvars"
+
+source ~/UI_deploy_kendra_es/${REPO_FOLDER}/NACScheduler.tfvars
+echo "INFO ::: nac-scheduler-name $nac_scheduler_name"
+echo "INFO ::: user_private_ip $use_private_ip"
+USE_PRIVATE_IP=$(echo $use_private_ip| tr -d '"')
+USER_VPC_ID=$(echo $user_vpc_id| tr -d '"')
+echo "INFO ::: user_private_ip $use_private_ip"
+echo "INFO ::: USER_VPC_ID $USER_VPC_ID"
+echo "INFO ::: AWS_REGION $AWS_REGION"
+echo "INFO ::: AWS_PROFILE $AWS_PROFILE"
+
+if [[ "$USE_PRIVATE_IP" == "N" ]]; then
+	REPO_FOLDER="nasuni-opensearch-userinterface-public"
+else
+	REPO_FOLDER="nasuni-opensearch-userinterface"
+	sed -i '/^$/d' $TFVARS_NAC_SCHEDULER
+	sed -i '/vpc_endpoint_id/d'  $TFVARS_NAC_SCHEDULER
+	SERVICE_NAME="com.amazonaws.$AWS_REGION.execute-api"
+	echo "INFO ::: SERVICE_NAME $SERVICE_NAME"
+
+	VPC_ENDPOINT_ID=`aws ec2 describe-vpc-endpoints --profile $AWS_PROFILE --region $AWS_REGION | jq -r '.VpcEndpoints[]|select(.VpcId == '\"$USER_VPC_ID\"' and .ServiceName=='\"$SERVICE_NAME\"') | {VpcEndpointId}' | jq -r '.VpcEndpointId'`
+	echo "INFO ::: VPC_ENDPOINT_ID $VPC_ENDPOINT_ID"
+
+	echo "vpc_endpoint_id="\"$VPC_ENDPOINT_ID\" >> $TFVARS_NAC_SCHEDULER
+	echo "" >> $TFVARS_NAC_SCHEDULER
+fi
+echo "INFO ::: REPO_FOLDER $REPO_FOLDER"
+#exit 11
 #cp $TFVARS_NAC_SCHEDULER $REPO_FOLDER/
-REPO_FOLDER="nasuni-opensearch-userinterface-public"
 echo "INFO ::: Check if Deployment is already done"
 FLAG="N"
 echo "INFO ::: GIT BRANCH : $GIT_BRANCH"
@@ -115,8 +142,6 @@ else
         echo "$FILE does not exist."
 fi
 
-source ~/UI_deploy_kendra_es/${REPO_FOLDER}/NACScheduler.tfvars
-echo "INFO ::: nac-scheduler-name $nac_scheduler_name"
 if [[ "$ANALYTICS_SERVICE" == "ES" ]]; then
 
 	if [ "$SEARCH_API" == "" ] || [ "$SEARCH_API" == "null" ] ; then
