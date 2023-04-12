@@ -856,7 +856,7 @@ ANALYTICS_SERVICE="$2" ### 2nd argument  ::: ANALYTICS_SERVICE
 FREQUENCY="$3"         ### 3rd argument  ::: FREQUENCY
 FOURTH_ARG="$4"        ### 4th argument  ::: User Secret a KVP file Or an existing Secret
 NAC_INPUT_KVP="$5"     ### 5th argument  ::: User defined KVP file for passing arguments to NAC
-GIT_BRANCH="CTPROJECT-432"	   ### Setting Up default Git Branch as "main". For debugging change the value of your branch and execute.
+GIT_BRANCH="main"	### Setting Up default Git Branch as "main". For debugging change the value of your branch and execute.
 USE_PRIVATE_IP="N"
 # GIT_BRANCH="Optimization"
 echo "INFO ::: Validating Arguments Passed to NAC_Scheduler.sh"
