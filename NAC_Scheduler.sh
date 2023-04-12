@@ -659,6 +659,8 @@ UI_Deployment(){
 	GITHUB_ORGANIZATION="$4"
 	GIT_BRANCH="$5"
 
+	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sudo apt-get install dos2unix"
+
 	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "dos2unix ~/UI_deploy_kendra_es/*" #SSA
 	RES="$?"
 	if [ $RES -ne 0 ]; then
@@ -667,8 +669,8 @@ UI_Deployment(){
 	elif [ $RES -eq 0 ]; then
 		echo "INFO ::: I_deploy_kendra_es folder executed dos2unix Successfully to NAC_Scheduer Instance."
 	fi
-	#IAM_USER to be defined. et user 
-	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "cd ~/UI_deploy_kendra_es && ./UI_deployment_kendra.sh $ANALYTICS_SERVICE $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $GIT_BRANCH" 
+	#IAM_USER to be defined. et user
+	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "cd ~/UI_deploy_kendra_es && sudo chmod 755 UI_deployment_kendra.sh && ./UI_deployment_kendra.sh $ANALYTICS_SERVICE $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $GIT_BRANCH" 
 	RES="$?"
 	if [ $RES -ne 0 ]; then
 		echo "ERROR ::: UI_Deployment :: Failed to execute UI_deployment_kendra.sh to NAC_Scheduer Instance."
@@ -786,6 +788,8 @@ Schedule_CRON_JOB() {
 	### Copy TFVARS and provision_nac.sh to NACScheduler
 	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null provision_nac.sh "$TFVARS_FILE_NAME" ubuntu@$NAC_SCHEDULER_IP_ADDR:~/$CRON_DIR_NAME
 
+	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sudo chmod -R 775 $CRON_DIR_NAME"
+
 	RES="$?"
 	if [ $RES -ne 0 ]; then
 		echo "ERROR ::: Failed to Copy $TFVARS_FILE_NAME to NAC_Scheduer Instance."
@@ -852,7 +856,7 @@ ANALYTICS_SERVICE="$2" ### 2nd argument  ::: ANALYTICS_SERVICE
 FREQUENCY="$3"         ### 3rd argument  ::: FREQUENCY
 FOURTH_ARG="$4"        ### 4th argument  ::: User Secret a KVP file Or an existing Secret
 NAC_INPUT_KVP="$5"     ### 5th argument  ::: User defined KVP file for passing arguments to NAC
-GIT_BRANCH="main"	   ### Setting Up default Git Branch as "main". For debugging change the value of your branch and execute.
+GIT_BRANCH="CTPROJECT-432"	   ### Setting Up default Git Branch as "main". For debugging change the value of your branch and execute.
 USE_PRIVATE_IP="N"
 # GIT_BRANCH="Optimization"
 echo "INFO ::: Validating Arguments Passed to NAC_Scheduler.sh"

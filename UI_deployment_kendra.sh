@@ -53,7 +53,7 @@ current_folder()
 ######Start Exec
 TFVARS_NAC_SCHEDULER="NACScheduler.tfvars"
 
-source ~/UI_deploy_kendra_es/${REPO_FOLDER}/NACScheduler.tfvars
+source /home/ubuntu/UI_deploy_kendra_es/${REPO_FOLDER}NACScheduler.tfvars
 echo "INFO ::: nac-scheduler-name $nac_scheduler_name"
 echo "INFO ::: user_private_ip $use_private_ip"
 USE_PRIVATE_IP=$(echo $use_private_ip| tr -d '"')
