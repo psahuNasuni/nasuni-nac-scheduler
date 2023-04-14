@@ -42,9 +42,36 @@ START=$(date +%s)
 				"frequency") FREQUENCY="$value" ;;
 				"nac_scheduler_name") NAC_SCHEDULER_NAME="$value" ;;
 				"nac_es_securitygroup") NAC_ES_SECURITYGROUP="$value" ;;
+				"service_name") SERVICE_NAME="$value" ;;
+
 			esac
 		done < "$file"
 	}
+
+generate_tracker_json_kendra(){
+	echo "INFO ::: Updating TRACKER JSON ... "
+	INDEX_NAME=$1
+	INDEX_ID=$2
+	DEFAULT_URL=$3
+	FREQUENCY=$4
+	USER_SECRET=$5
+	CREATED_ON=$6
+	TRACKER_NMC_VOLUME_NAME=$7
+	ANALYTICS_SERVICE=$8
+	MOST_RECENT_RUN=${9}
+	CURRENT_STATE=${10}
+	LATEST_TOC_HANDLE_PROCESSED=${11}
+	NAC_SCHEDULER_NAME=$(echo "${12}" | tr -d '"')
+	KENDRA_URL=${13}
+	#sudo chmod -R 777 /home/ubuntu/kendra_tracker_json_folder/
+	sudo chmod -R 777 /var/www/Tracker_UI/docs/
+
+	echo "INFO ::: NAC_SCHEDULER_NAME $NAC_SCHEDULER_NAME generate_tracker_json_kendra"
+	
+	python3 /var/www/Tracker_UI/docs/tracker_json_kendra.py $INDEX_NAME $INDEX_ID $DEFAULT_URL $FREQUENCY $USER_SECRET  $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME $KENDRA_URL
+	echo "INFO ::: TRACKER JSON  Updated"
+
+}
 
 generate_tracker_json(){
 	echo "INFO ::: Updating TRACKER JSON ... "
@@ -65,6 +92,7 @@ generate_tracker_json(){
 	python3 /var/www/Tracker_UI/docs/tracker_json.py $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
 	echo "INFO ::: TRACKER JSON  Updated"
 }
+
 
 check_if_secret_exists() {
 	USER_SECRET="$1"
@@ -114,52 +142,103 @@ GIT_BRANCH=$(echo "$GIT_BRANCH" | tr -d '"')
 GITHUB_ORGANIZATION=$(echo "$GITHUB_ORGANIZATION" | tr -d '"')
 NAC_SCHEDULER_NAME=$(echo "$NAC_SCHEDULER_NAME" | tr -d '"')
 NAC_ES_SECURITYGROUP=$(echo "$NAC_ES_SECURITYGROUP" | tr -d '"')
+SERVICE_NAME=$(echo "$SERVICE_NAME" | tr -d '"')
+
 echo NAC_SCHDULER_NAME $NAC_SCHEDULER_NAME
-OS_ADMIIN_SECRET="nasuni-labs-os-admin"
+echo SERVICE_NAME $SERVICE_NAME
 
 
+if [ "$SERVICE_NAME" == "ES" ]; then
+	OS_ADMIIN_SECRET="nasuni-labs-os-admin"
+else
+	OS_ADMIIN_SECRET="nasuni-labs-kendra-admin"
+fi
 ##################################### START TRACKER JSON Creation ###################################################################
 
 echo "NAC_Activity : Export In Progress"
-
-OS_URL=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.nac_es_url')
-KIBANA_URL=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.nac_kibana_url')
-DEFAULT_URL="/search/index.html"
-USER_SECRET=$OS_ADMIIN_SECRET
-CREATED_BY=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.nac_es_admin_user')
-CREATED_ON=$(date "+%Y%m%d-%H%M%S")
-TRACKER_NMC_VOLUME_NAME=$NMC_VOLUME_NAME
-ANALYTICS_SERVICE=(${TFVARS_FILE//_/ })
-ANALYTICS_SERVICE=$(echo "${ANALYTICS_SERVICE[-1]}" | cut -d'.' -f 1)
-MOST_RECENT_RUN=$(date "+%Y:%m:%d-%H:%M:%S")
-CURRENT_STATE="Export-In-progress"
-LATEST_TOC_HANDLE_PROCESSED="-"
-echo "INFO ::: Nach sheduler name: " ${NAC_SCHEDULER_NAME}
-JSON_FILE_PATH="/var/www/Tracker_UI/docs/${NAC_SCHEDULER_NAME}_tracker.json"
-echo "INFO ::: JSON_FILE_PATH:" $JSON_FILE_PATH
-if [ -f "$JSON_FILE_PATH" ] ; then
-	TRACEPATH="${NMC_VOLUME_NAME}_${ANALYTICS_SERVICE}"
-	TRACKER_JSON=$(cat $JSON_FILE_PATH)
-	echo "Tracker json" $TRACKER_JSON
-	LATEST_TOC_HANDLE_PROCESSED=$(echo $TRACKER_JSON | jq -r .INTEGRATIONS.\"$TRACEPATH\"._NAC_activity.latest_toc_handle_processed)
-	#if [ -z "$LATEST_TOC_HANDLE_PROCESSED" -a "$LATEST_TOC_HANDLE_PROCESSED" == " " ]; then	
-	if [ -z "$LATEST_TOC_HANDLE_PROCESSED" ] || [ "$LATEST_TOC_HANDLE_PROCESSED" == " " ] || [ "$LATEST_TOC_HANDLE_PROCESSED" == "null" ]; then	
- 		LATEST_TOC_HANDLE_PROCESSED="-"
+KENDRA_URL=""
+###Req generate_tracker_json.py start put it in if
+if [ "$SERVICE_NAME" == "ES" ]; then
+	OS_URL=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.nac_es_url')
+	KIBANA_URL=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.nac_kibana_url')
+	DEFAULT_URL="/search/index.html"
+	USER_SECRET=$OS_ADMIIN_SECRET
+	CREATED_BY=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.nac_es_admin_user')
+	CREATED_ON=$(date "+%Y%m%d-%H%M%S")
+	TRACKER_NMC_VOLUME_NAME=$NMC_VOLUME_NAME
+	ANALYTICS_SERVICE=(${TFVARS_FILE//_/ })
+	ANALYTICS_SERVICE=$(echo "${ANALYTICS_SERVICE[-1]}" | cut -d'.' -f 1)
+	MOST_RECENT_RUN=$(date "+%Y:%m:%d-%H:%M:%S")
+	CURRENT_STATE="Export-In-progress"
+	LATEST_TOC_HANDLE_PROCESSED="-"
+	echo "INFO ::: Nach sheduler name: " ${NAC_SCHEDULER_NAME}
+	JSON_FILE_PATH="/var/www/Tracker_UI/docs/${NAC_SCHEDULER_NAME}_tracker_ES.json"
+	echo "INFO ::: JSON_FILE_PATH:" $JSON_FILE_PATH
+	if [ -f "$JSON_FILE_PATH" ] ; then
+		TRACEPATH="${NMC_VOLUME_NAME}_${ANALYTICS_SERVICE}"
+		TRACKER_JSON=$(cat $JSON_FILE_PATH)
+		echo "Tracker json" $TRACKER_JSON
+		LATEST_TOC_HANDLE_PROCESSED=$(echo $TRACKER_JSON | jq -r .INTEGRATIONS.\"$TRACEPATH\"._NAC_activity.latest_toc_handle_processed)
+		#if [ -z "$LATEST_TOC_HANDLE_PROCESSED" -a "$LATEST_TOC_HANDLE_PROCESSED" == " " ]; then	
+		if [ -z "$LATEST_TOC_HANDLE_PROCESSED" ] || [ "$LATEST_TOC_HANDLE_PROCESSED" == " " ] || [ "$LATEST_TOC_HANDLE_PROCESSED" == "null" ]; then	
+ 			LATEST_TOC_HANDLE_PROCESSED="-"
+		fi
+		echo "INFO LATEST_TOC_HANDLE PROCESSED"  $LATEST_TOC_HANDLE_PROCESSED
 	fi
-	echo "INFO LATEST_TOC_HANDLE PROCESSED"  $LATEST_TOC_HANDLE_PROCESSED
-fi
 
-generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
+	generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
+
+else
+	echo "Kendra stuff"
+	INDEX_NAME=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.index_name')
+	INDEX_ID=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.index_id')
+	DEFAULT_URL="/search/index.html"
+	USER_SECRET=$OS_ADMIIN_SECRET
+	CREATED_ON=$(date "+%Y%m%d-%H%M%S")
+	TRACKER_NMC_VOLUME_NAME=$NMC_VOLUME_NAME
+	ANALYTICS_SERVICE=(${TFVARS_FILE//_/ })
+	ANALYTICS_SERVICE=$(echo "${ANALYTICS_SERVICE[-1]}" | cut -d'.' -f 1)
+	MOST_RECENT_RUN=$(date "+%Y:%m:%d-%H:%M:%S")
+	CURRENT_STATE="Export-In-progress"
+	LATEST_TOC_HANDLE_PROCESSED="-"
+	echo "INFO ::: Nach sheduler name: " ${NAC_SCHEDULER_NAME}
+	#JSON_FILE_PATH="/home/ubuntu/kendra_tracker_json_folder/${NAC_SCHEDULER_NAME}_tracker_KENDRA.json"
+	JSON_FILE_PATH="/var/www/Tracker_UI/docs/${NAC_SCHEDULER_NAME}_tracker_KENDRA.json"
+
+	echo "INFO ::: JSON_FILE_PATH:" $JSON_FILE_PATH
+	KENDRA_URL="https://$AWS_REGION.console.aws.amazon.com/kendra/home?region=$AWS_REGION#indexes/$INDEX_ID/search"
+	if [ -f "$JSON_FILE_PATH" ] ; then 
+		TRACEPATH="${NMC_VOLUME_NAME}_${ANALYTICS_SERVICE}"
+		TRACKER_JSON=$(cat $JSON_FILE_PATH)
+		echo "Tracker json" $TRACKER_JSON
+		LATEST_TOC_HANDLE_PROCESSED=$(echo $TRACKER_JSON | jq -r .INTEGRATIONS.\"$TRACEPATH\"._NAC_activity.latest_toc_handle_processed)
+		#if [ -z "$LATEST_TOC_HANDLE_PROCESSED" -a "$LATEST_TOC_HANDLE_PROCESSED" == " " ]; then	
+		if [ -z "$LATEST_TOC_HANDLE_PROCESSED" ] || [ "$LATEST_TOC_HANDLE_PROCESSED" == " " ] || [ "$LATEST_TOC_HANDLE_PROCESSED" == "null" ]; then	
+ 			LATEST_TOC_HANDLE_PROCESSED="-"
+		fi
+		echo "INFO LATEST_TOC_HANDLE PROCESSED"  $LATEST_TOC_HANDLE_PROCESSED
+	fi
+	echo "INDEX_ID :: $INDEX_ID"
+	generate_tracker_json_kendra $INDEX_NAME $INDEX_ID $DEFAULT_URL $FREQUENCY $USER_SECRET  $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME $KENDRA_URL
+	
+fi
 pwd
+######Req for generate_tracker_json for kendra 
+
 echo "INFO ::: current user :-"`whoami`
 ########## Download NAC Provisioning Code from GitHub ##########
 ### GITHUB_ORGANIZATION defaults to nasuni-labs
 # REPO_FOLDER="nasuni-analyticsconnector-opensearch"
-if [ "$USE_PRIVATE_IP" == "N" ] || [ "$USE_PRIVATE_IP" == null ] || [ "$USE_PRIVATE_IP" == "" ]; then
-        REPO_FOLDER="nasuni-analyticsconnector-opensearch-public"
+if [ "$SERVICE_NAME" == "ES" ]; then 
+	if [ "$USE_PRIVATE_IP" == "N" ] || [ "$USE_PRIVATE_IP" == null ] || [ "$USE_PRIVATE_IP" == "" ]; then
+        	REPO_FOLDER="nasuni-analyticsconnector-opensearch-public"
+	else
+	        REPO_FOLDER="nasuni-analyticsconnector-opensearch"
+	fi
 else
-        REPO_FOLDER="nasuni-analyticsconnector-opensearch"
+	REPO_FOLDER="nasuni-analyticsconnector-kendra"
 fi
+echo "INFO ::: REPO_FOLDER - $REPO_FOLDER !!!"
 validate_github $GITHUB_ORGANIZATION $REPO_FOLDER
 ########################### Git Clone : NAC Provisioning Repo ###############################################################
 echo "INFO ::: BEGIN - Git Clone !!!"
@@ -168,7 +247,6 @@ GIT_REPO_NAME=$(echo ${GIT_REPO} | sed 's/.*\/\([^ ]*\/[^.]*\).*/\1/' | cut -d "
 echo "INFO ::: GIT_REPO : $GIT_REPO"
 echo "INFO ::: GIT_REPO_NAME : $GIT_REPO_NAME"
 pwd
-ls
 echo "INFO ::: Deleting the Directory: ${GIT_REPO_NAME}"
 rm -rf "${GIT_REPO_NAME}"
 pwd
@@ -183,46 +261,77 @@ else
 	exit 1
 fi
 pwd
-ls -l
 ########################### Completed - Git Clone  ###############################################################
-echo "INFO ::: Copy TFVARS file to $(pwd)/${GIT_REPO_NAME}/${TFVARS_FILE}"
+echo "INFO ::: Copy TFVARS file to /$(pwd)/${GIT_REPO_NAME}/${TFVARS_FILE}"
 # cp "$NMC_VOLUME_NAME/${TFVARS_FILE}" $(pwd)/"${GIT_REPO_NAME}"/
 cp "${TFVARS_FILE}" "${GIT_REPO_NAME}"/
 cd "${GIT_REPO_NAME}"
 pwd
-ls
 
 NMC_VOLUME_NAME_1=$(echo $NMC_VOLUME_NAME|tr -d '"')
 ANALYTICS_SERVICE_1=$(echo $ANALYTICS_SERVICE|tr -d '"')
 NAC_SCHEDULER_NAME_1=$(echo $NAC_SCHEDULER_NAME|tr -d '"')
 
 #JSON_FILE_PATH="$HOME/TrackerJson/${NAC_SCHEDULER_NAME_1}_tracker.json"
-echo $JSON_FILE_PATH
-LATEST_TOC_HANDLE=""
-if [ -f "$JSON_FILE_PATH" ] ; then
-	TRACEPATH="${NMC_VOLUME_NAME_1}_${ANALYTICS_SERVICE_1}"
-	echo $TRACEPATH
-	TRACKER_JSON=$(cat $JSON_FILE_PATH)
-	echo "Tracker json" $TRACKER_JSON
-	LATEST_TOC_HANDLE=$(echo $TRACKER_JSON | jq -r .INTEGRATIONS.\"$TRACEPATH\"._NAC_activity.latest_toc_handle_processed)
-	if [ "$LATEST_TOC_HANDLE" =  "-" ] ; then
-		LATEST_TOC_HANDLE=""
-	fi
-	echo "LATEST_TOC_HANDLE: $LATEST_TOC_HANDLE"
-else
+
+######Req for generate_tracker_json for kendra if condition
+if [ "$SERVICE_NAME" == "ES" ]; then
+	echo $JSON_FILE_PATH
 	LATEST_TOC_HANDLE=""
-	echo "ERROR:::Tracker JSON folder Not present"
+	if [ -f "$JSON_FILE_PATH" ] ; then
+		TRACEPATH="${NMC_VOLUME_NAME_1}_${ANALYTICS_SERVICE_1}"
+		echo $TRACEPATH
+		TRACKER_JSON=$(cat $JSON_FILE_PATH)
+		echo "Tracker json" $TRACKER_JSON
+		LATEST_TOC_HANDLE=$(echo $TRACKER_JSON | jq -r .INTEGRATIONS.\"$TRACEPATH\"._NAC_activity.latest_toc_handle_processed)
+		if [ "$LATEST_TOC_HANDLE" =  "-" ] ; then
+			LATEST_TOC_HANDLE=""
+		fi
+		echo "LATEST_TOC_HANDLE: $LATEST_TOC_HANDLE"
+	else
+		LATEST_TOC_HANDLE=""
+		echo "ERROR:::Tracker JSON folder Not present"
+	fi
+
+	echo "INFO ::: LATEST_TOC_HANDLE" $LATEST_TOC_HANDLE
+	LATEST_TOC_HANDLE_PROCESSED=$LATEST_TOC_HANDLE
+
+	FOLDER_PATH=`pwd`
+
+	##appending latest_toc_handle_processed to TFVARS_FILE
+	echo "PrevUniFSTOCHandle="\"$LATEST_TOC_HANDLE\" >>$FOLDER_PATH/$TFVARS_FILE
+
+	####Req 
+else
+	echo "Kendra stuff"
+	echo $JSON_FILE_PATH
+	LATEST_TOC_HANDLE=""
+	if [ -f "$JSON_FILE_PATH" ] ; then
+		TRACEPATH="${NMC_VOLUME_NAME_1}_${ANALYTICS_SERVICE_1}"
+		echo $TRACEPATH
+		TRACKER_JSON=$(cat $JSON_FILE_PATH)
+		echo "Tracker json" $TRACKER_JSON
+		LATEST_TOC_HANDLE=$(echo $TRACKER_JSON | jq -r .INTEGRATIONS.\"$TRACEPATH\"._NAC_activity.latest_toc_handle_processed)
+		if [ "$LATEST_TOC_HANDLE" =  "-" ] ; then
+			LATEST_TOC_HANDLE=""
+		fi
+		echo "LATEST_TOC_HANDLE: $LATEST_TOC_HANDLE"
+	else
+		LATEST_TOC_HANDLE=""
+		echo "ERROR:::Tracker JSON folder Not present"
+	fi
+
+	echo "INFO ::: LATEST_TOC_HANDLE" $LATEST_TOC_HANDLE
+	LATEST_TOC_HANDLE_PROCESSED=$LATEST_TOC_HANDLE
+
+	FOLDER_PATH=`pwd`
+
+	##appending latest_toc_handle_processed to TFVARS_FILE
+	echo "PrevUniFSTOCHandle="\"$LATEST_TOC_HANDLE\" >>$FOLDER_PATH/$TFVARS_FILE
+
+
 fi
-
-echo "INFO ::: LATEST_TOC_HANDLE" $LATEST_TOC_HANDLE
-LATEST_TOC_HANDLE_PROCESSED=$LATEST_TOC_HANDLE
-
-FOLDER_PATH=`pwd`
-
-##appending latest_toc_handle_processed to TFVARS_FILE
-echo "PrevUniFSTOCHandle="\"$LATEST_TOC_HANDLE\" >>$FOLDER_PATH/$TFVARS_FILE
-
-
+##exit 99
 ##### RUN terraform init
 echo "INFO ::: NAC provisioning ::: BEGIN - Executing ::: Terraform init."
 COMMAND="terraform init"
@@ -236,17 +345,41 @@ COMMAND="terraform apply -var-file=${TFVARS_FILE} -auto-approve"
 $COMMAND
 if [ $? -eq 0 ]; then
 	echo "INFO ::: NAC provisioning ::: FINISH ::: Terraform apply ::: SUCCESS"
-	echo "NAC_Activity : Export Completed. Indexing in Progress"
-	CURRENT_STATE="Export-completed-And-Indexing-In-progress"
-	LATEST_TOC_HANDLE_PROCESSED=$(terraform output -raw latest_toc_handle_processed)
-	echo "INFO ::: LATEST_TOC_HANDLE_PROCESSED for NAC Discovery is : $LATEST_TOC_HANDLE_PROCESSED"
-	generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
+	
+	######Req for generate_tracker_json for kendra if condition
+	if [ "$SERVICE_NAME" == "ES" ]; then
+
+		echo "NAC_Activity : Export Completed. Indexing in Progress"
+		CURRENT_STATE="Export-completed-And-Indexing-In-progress"
+		LATEST_TOC_HANDLE_PROCESSED=$(terraform output -raw latest_toc_handle_processed)
+		echo "INFO ::: LATEST_TOC_HANDLE_PROCESSED for NAC Discovery is : $LATEST_TOC_HANDLE_PROCESSED"
+		generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
+	else
+		echo "Kendra Execution"
+		echo "NAC_Activity : Export Completed. Indexing in Progress"
+		CURRENT_STATE="Export-completed-And-Indexing-In-progress"
+		LATEST_TOC_HANDLE_PROCESSED=$(terraform output -raw latest_toc_handle_processed)
+		echo "INFO ::: LATEST_TOC_HANDLE_PROCESSED for NAC Discovery is : $LATEST_TOC_HANDLE_PROCESSED"
+		generate_tracker_json_kendra $INDEX_NAME $INDEX_ID $DEFAULT_URL $FREQUENCY $USER_SECRET  $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME $KENDRA_URL
+
+	fi
 else
 	echo "INFO ::: NAC provisioning ::: FINISH ::: Terraform apply ::: FAILED"
-	echo "NAC_Activity : Export Failed/Indexing Failed"
-	CURRENT_STATE="Export-Failed-And-Indexing-Failed"
-	generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
+
+	######Req for generate_tracker_json for kendra if condition
+	if [ "$SERVICE_NAME" == "ES" ]; then
+
+		echo "NAC_Activity : Export Failed/Indexing Failed"
+		CURRENT_STATE="Export-Failed-And-Indexing-Failed"
+		generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
 	##exit 1
+	else
+		echo "Kendra Execution"
+		echo "NAC_Activity : Export Failed/Indexing Failed"
+		CURRENT_STATE="Export-Failed-And-Indexing-Failed"
+		generate_tracker_json_kendra $INDEX_NAME $INDEX_ID $DEFAULT_URL $FREQUENCY $USER_SECRET  $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME $KENDRA_URL
+
+	fi
     fi
     sleep 300
 
@@ -257,7 +390,15 @@ else
     INTERNAL_SECRET=$(head -n 1 nac_uniqui_id.txt  | tr -d "'")
     echo "INFO ::: Internal secret for NAC Discovery is : $INTERNAL_SECRET"
 
-    generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
+    ######Req for generate_tracker_json for kendra if condition
+    if [ "$SERVICE_NAME" == "ES" ]; then
+	    generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
+    else
+	   echo "Kendra execution"
+	   generate_tracker_json_kendra $INDEX_NAME $INDEX_ID $DEFAULT_URL $FREQUENCY $USER_SECRET  $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME $KENDRA_URL
+    fi	   
+   ######Req for generate_tracker_json for kendra if condition
+
 
 ##Get the NAC discovery lambda function name
 DISCOVERY_LAMBDA_NAME=$(aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name')
@@ -313,6 +454,19 @@ echo "INFO ::: CleanUp Flag: $CLEANUP"
 #if [ "$CLEANUP" == "Y" ]; then
 echo "INFO ::: Lambda execution COMPLETED."
 echo "INFO ::: STARTED ::: CLEANUP NAC STACK and dependent resources . . . . . . . . . . . . . . . . . . . . ."
+
+pwd
+echo "INFO ::: pwd" pwd
+UNIQUE_ID=$(cat nac_uniqui_id.txt | cut -d - -f4)
+echo "INFO ::: UNIQUE_ID ::: $UNIQUE_ID "
+
+aws s3 rm --recursive s3://nasuni-share-data-bucket-storage/nmc_api_data_$UNIQUE_ID/ --profile ${AWS_PROFILE}
+if [ $? -eq 0 ]; then
+        echo "INFO ::: deleted files from nasuni-share-data-bucket-storage bucket and folder nmc_api_data_$UNIQUE_ID"      
+else
+        echo "INFO ::: Error in deleted files from nasuni-share-data-bucket-storage bucket and folder nmc_api_data_$UNIQUE_ID"
+fi
+
 # ##### RUN terraform destroy to CLEANUP NAC STACK and dependent resources
 
 COMMAND="terraform destroy -var-file=${TFVARS_FILE} -auto-approve"

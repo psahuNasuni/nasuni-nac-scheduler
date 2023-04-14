@@ -16,20 +16,21 @@ def is_file_exist(tracker_dir, filename):
         print ("Tracker JSON Dose exist: " + tracker_dir + filename)
         return False
    
-def add_source(os_url, kibana_url, default_url, frequency, user_secret, created_By, created_on, volume, service):
+def add_source(index_name, index_id, default_url, frequency, user_secret,  created_on, volume, service,kendra_url):
     """
     Add _source information 
     """
     _source = {}
-    _source["os_url"] = os_url
-    _source["kibana_url"] = kibana_url
+    _source["index_name"] = index_name
+    _source["index_id"] = index_id
     _source["default_url"] = default_url
     _source["frequency"] = frequency
     _source["user_secret"] = user_secret
-    _source["created_By"] = created_By
     _source["created on"] = created_on
     _source["volume"] = volume
     _source["service"] = service
+    _source["kendra_url"] = kendra_url
+
     return _source
 
 def add_NAC_activity(most_recent_run, current_state, latest_toc_handle_processed):
@@ -69,12 +70,12 @@ def service_tracker(volume, service, service_tracker):
         service_tracker[service].append(volume)
     return service_tracker
 
-def combined_tracker_UI(os_url, kibana_url, default_url, frequency, user_secret, created_By, created_on, volume, service, most_recent_run, current_state, latest_toc_handle_processed, nac_scheduler_name):
+def combined_tracker_UI(index_name, index_id, default_url, frequency, user_secret,  created_on, volume, service, most_recent_run, current_state, latest_toc_handle_processed, nac_scheduler_name,kendra_url):
     """
     tracker_UI: Going to create the dynamic json file
     """ 
     integration_name = volume + "_" + service
-    tracker_json_filename = nac_scheduler_name + "_tracker_ES.json"
+    tracker_json_filename = nac_scheduler_name + "_tracker_KENDRA.json"
 
     if is_file_exist(tracker_dir, tracker_json_filename):
         # Load the integration json file
@@ -90,7 +91,7 @@ def combined_tracker_UI(os_url, kibana_url, default_url, frequency, user_secret,
             tracker_json["INTEGRATIONS"][integration_name] =  {}
             tracker_json["INTEGRATIONS"][integration_name]["_source"] = {}
             tracker_json["INTEGRATIONS"][integration_name]["_NAC_activity"] = {}
-            tracker_json["INTEGRATIONS"][integration_name]["_source"] = add_source(os_url, kibana_url, default_url, frequency, user_secret, created_By, created_on, volume, service)
+            tracker_json["INTEGRATIONS"][integration_name]["_source"] = add_source(index_name, index_id, default_url, frequency, user_secret,  created_on, volume, service,kendra_url)
             tracker_json["INTEGRATIONS"][integration_name]["_NAC_activity"] = add_NAC_activity(most_recent_run, current_state, latest_toc_handle_processed)
         
         # Update the VOLUMES
@@ -102,7 +103,7 @@ def combined_tracker_UI(os_url, kibana_url, default_url, frequency, user_secret,
         tracker_json["INTEGRATIONS"][integration_name] =  {}
         tracker_json["INTEGRATIONS"][integration_name]["_source"] = {}
         tracker_json["INTEGRATIONS"][integration_name]["_NAC_activity"] = {}
-        tracker_json["INTEGRATIONS"][integration_name]["_source"] = add_source(os_url, kibana_url, default_url, frequency, user_secret, created_By, created_on, volume, service)
+        tracker_json["INTEGRATIONS"][integration_name]["_source"] = add_source(index_name, index_id, default_url, frequency, user_secret,  created_on, volume, service,kendra_url)
         tracker_json["INTEGRATIONS"][integration_name]["_NAC_activity"] = add_NAC_activity(most_recent_run, current_state, latest_toc_handle_processed)
         tracker_json["VOLUMES"] = {}
         tracker_json["VOLUMES"] = volume_tracker(volume, service, tracker_json["VOLUMES"])
@@ -125,18 +126,20 @@ if __name__ == '__main__':
     except OSError as e:
         print("Exception while creating directory: " + str(e))
 
-    os_url = sys.argv[1]
-    kibana_url = sys.argv[2]
+    index_name = sys.argv[1]
+    index_id = sys.argv[2]
     default_url = sys.argv[3]
     frequency = sys.argv[4]
     user_secret = sys.argv[5]
-    created_By =  sys.argv[6]
-    created_on = sys.argv[7]
-    volume = sys.argv[8]
-    service = sys.argv[9]
-    most_recent_run = sys.argv[10]
-    current_state = sys.argv[11]
-    latest_toc_handle_processed = sys.argv[12]
-    nac_scheduler_name = sys.argv[13]
+    #created_By =  sys.argv[6]
+    created_on = sys.argv[6]
+    volume = sys.argv[7]
+    service = sys.argv[8]
+    most_recent_run = sys.argv[9]
+    current_state = sys.argv[10]
+    latest_toc_handle_processed = sys.argv[11]
+    nac_scheduler_name = sys.argv[12]
+    kendra_url = sys.argv[13]
+
     print("Tracker Json ::: Execution Started")
-    tracker_json = combined_tracker_UI(os_url, kibana_url, default_url, frequency, user_secret, created_By, created_on, volume, service, most_recent_run, current_state, latest_toc_handle_processed, nac_scheduler_name)
+    tracker_json = combined_tracker_UI(index_name, index_id, default_url, frequency, user_secret,  created_on, volume, service, most_recent_run, current_state, latest_toc_handle_processed, nac_scheduler_name,kendra_url)
