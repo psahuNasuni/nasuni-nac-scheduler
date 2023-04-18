@@ -142,7 +142,7 @@ else
         echo "$FILE does not exist."
 fi
 
-if [[ "$ANALYTICS_SERVICE" == "ES" ]]; then
+if [ "$ANALYTICS_SERVICE" = "ES" ] || [ "$ANALYTICS_SERVICE" = "OS" ]; then
 
 	if [ "$SEARCH_API" == "" ] || [ "$SEARCH_API" == "null" ] ; then
 	    echo "INFO ::: API Gateway Deployemtn for ES"

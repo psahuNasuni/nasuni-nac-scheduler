@@ -148,7 +148,7 @@ echo NAC_SCHDULER_NAME $NAC_SCHEDULER_NAME
 echo SERVICE_NAME $SERVICE_NAME
 
 
-if [ "$SERVICE_NAME" == "ES" ]; then
+if [ "$SERVICE_NAME" = "ES" ] || [ "$SERVICE_NAME" = "OS" ]; then
 	OS_ADMIIN_SECRET="nasuni-labs-os-admin"
 else
 	OS_ADMIIN_SECRET="nasuni-labs-kendra-admin"
@@ -158,7 +158,7 @@ fi
 echo "NAC_Activity : Export In Progress"
 KENDRA_URL=""
 ###Req generate_tracker_json.py start put it in if
-if [ "$SERVICE_NAME" == "ES" ]; then
+if [ "$SERVICE_NAME" = "ES" ] || [ "$SERVICE_NAME" = "OS" ]; then
 	OS_URL=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.nac_es_url')
 	KIBANA_URL=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.nac_kibana_url')
 	DEFAULT_URL="/search/index.html"
@@ -229,7 +229,7 @@ echo "INFO ::: current user :-"`whoami`
 ########## Download NAC Provisioning Code from GitHub ##########
 ### GITHUB_ORGANIZATION defaults to nasuni-labs
 # REPO_FOLDER="nasuni-analyticsconnector-opensearch"
-if [ "$SERVICE_NAME" == "ES" ]; then 
+if [ "$SERVICE_NAME" = "ES" ] || [ "$SERVICE_NAME" = "OS" ]; then 
 	if [ "$USE_PRIVATE_IP" == "N" ] || [ "$USE_PRIVATE_IP" == null ] || [ "$USE_PRIVATE_IP" == "" ]; then
         	REPO_FOLDER="nasuni-analyticsconnector-opensearch-public"
 	else
@@ -275,7 +275,7 @@ NAC_SCHEDULER_NAME_1=$(echo $NAC_SCHEDULER_NAME|tr -d '"')
 #JSON_FILE_PATH="$HOME/TrackerJson/${NAC_SCHEDULER_NAME_1}_tracker.json"
 
 ######Req for generate_tracker_json for kendra if condition
-if [ "$SERVICE_NAME" == "ES" ]; then
+if [ "$SERVICE_NAME" = "ES" ] || [ "$SERVICE_NAME" = "OS" ]; then
 	echo $JSON_FILE_PATH
 	LATEST_TOC_HANDLE=""
 	if [ -f "$JSON_FILE_PATH" ] ; then
@@ -347,7 +347,7 @@ if [ $? -eq 0 ]; then
 	echo "INFO ::: NAC provisioning ::: FINISH ::: Terraform apply ::: SUCCESS"
 	
 	######Req for generate_tracker_json for kendra if condition
-	if [ "$SERVICE_NAME" == "ES" ]; then
+	if [ "$SERVICE_NAME" = "ES" ] || [ "$SERVICE_NAME" = "OS" ]; then
 
 		echo "NAC_Activity : Export Completed. Indexing in Progress"
 		CURRENT_STATE="Export-completed-And-Indexing-In-progress"
@@ -367,7 +367,7 @@ else
 	echo "INFO ::: NAC provisioning ::: FINISH ::: Terraform apply ::: FAILED"
 
 	######Req for generate_tracker_json for kendra if condition
-	if [ "$SERVICE_NAME" == "ES" ]; then
+	if [ "$SERVICE_NAME" = "ES" ] || [ "$SERVICE_NAME" = "OS" ]; then
 
 		echo "NAC_Activity : Export Failed/Indexing Failed"
 		CURRENT_STATE="Export-Failed-And-Indexing-Failed"
@@ -391,7 +391,7 @@ else
     echo "INFO ::: Internal secret for NAC Discovery is : $INTERNAL_SECRET"
 
     ######Req for generate_tracker_json for kendra if condition
-    if [ "$SERVICE_NAME" == "ES" ]; then
+    if [ "$SERVICE_NAME" = "ES" ] || [ "$SERVICE_NAME" = "OS" ]; then
 	    generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
     else
 	   echo "Kendra execution"

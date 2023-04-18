@@ -739,7 +739,7 @@ Schedule_CRON_JOB() {
 	elif [ $RES -eq 0 ]; then
 		echo "INFO ::: create_layer.sh Uploaded Successfully to NAC_Scheduer Instance."
 	fi
-	if [[ "$ANALYTICS_SERVICE" == "ES" ]]; then
+	if [ "$ANALYTICS_SERVICE" == "ES" ] || [ "$ANALYTICS_SERVICE" == "OS" ]; then
 		# Kendra_UI_Deployment $ANALYTICS_SERVICE $AWS_REGION $AWS_PROFILE
 		# scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "$TFVARS_FILE_NAME" ubuntu@$NAC_SCHEDULER_IP_ADDR:~/
 		ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sudo cp tracker_json.py /var/www/Tracker_UI/docs/"
