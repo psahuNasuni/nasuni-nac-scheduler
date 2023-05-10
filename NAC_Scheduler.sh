@@ -228,10 +228,7 @@ check_if_kendra_exists(){
 		echo "INFO ::: Amazon_Kendra_Service configuration is Not found in admin secret"
 		IS_KENDRA="N"
 	else	
-		KENDRA_AVL=$(aws kendra list-indices --profile nasuni | jq -r '.IndexConfigurationSummaryItems[]|select(.Id == '\"$KENDRA_DOMAIN_NAME\"' and .Status == "ACTIVE") | {Name}|'.[]'' 2> /dev/null)
-		# ES_CREATED=$(aws es describe-elasticsearch-domain --domain-name "${ES_DOMAIN_NAME}" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.DomainStatus.Created' 2> /dev/null)
-		# KENDRA_CREATED=$(echo $KENDRA_DATA | jq -r '.DomainStatus.Created' 2> /dev/null)
-		# if [ $? -eq 0 ]; then
+		KENDRA_AVL=$(aws kendra list-indices --profile $AWS_PROFILE | jq -r '.IndexConfigurationSummaryItems[]|select(.Id == '\"$KENDRA_DOMAIN_NAME\"' and .Status == "ACTIVE") | {Name}|'.[]'' 2> /dev/null)
 		if [[ $KENDRA_AVL != "" ]]; then
 			echo "INFO ::: KENDRA_AVL : $KENDRA_DOMAIN_NAME with ACTIVE status"
 			IS_KENDRA="Y"
@@ -292,32 +289,7 @@ check_if_kendra_exists(){
 			exit 1
 		fi
 		cd ..
-
-
-		####Create the requrired roles and policies######################
-		####Check if kendra role is present #############################
-		# ROLE_NAME_FOR_KENDRA="nasuni-labs-aws-kendra-role"
-		# POLICY_NAME_FOR_KENDRA="nasuni-labs-kendra-load-data-policy"
-		# CHECK_IS=$(aws iam list-role-policies --role-name "${ROLE_NAME_FOR_KENDRA}" --profile "${AWS_PROFILE}" | jq '.PolicyNames[]' 2> /dev/null)
-		# if [ "$CHECK_IS" != "" ]; then
-		# 	aws iam create-role --role-name "${ROLE_NAME_FOR_KENDRA}" --assume-role-policy-document file://trust-policy.json --profile "${AWS_PROFILE}"
-		# 	RES="$?"
-		# 	if [ $RES -ne 0 ]; then
-		# 		echo "ERROR ::: $RES Failed to Create Role $ROLE_NAME_FOR_KENDRA as, its already exists."
-		# 		exit 1
-		# 	elif [ $RES -eq 0 ]; then
-		# 		echo "INFO ::: Role $ROLE_NAME_FOR_KENDRA Created"
-		# 	fi
-		# 	aws iam put-role-policy --role-name "${ROLE_NAME_FOR_KENDRA}" --policy-name "${POLICY_NAME_FOR_KENDRA}" --policy-document file://kendra_policies.json --profile "${AWS_PROFILE}"
-		# 	RES="$?"
-		# 	if [ $RES -ne 0 ]; then
-		# 		echo "ERROR ::: $RES Failed to Create Policy $POLICY_NAME_FOR_KENDRA as, its already exists."
-		# 		exit 1
-		# 	elif [ $RES -eq 0 ]; then
-		# 		echo "INFO ::: Policy $POLICY_NAME_FOR_KENDRA Created"
-		# 	fi			
 	fi
-	# exit 1
 }
 
 check_if_vpc_exists(){
@@ -661,7 +633,7 @@ UI_Deployment(){
 
 	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sudo apt-get install dos2unix"
 
-	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "dos2unix ~/UI_deploy_kendra_es/*" #SSA
+	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "dos2unix ~/UI_deploy_kendra_es/*" 
 	RES="$?"
 	if [ $RES -ne 0 ]; then
 		echo "ERROR ::: Failed to do dos2unix UI_deploy_kendra_es to NAC_Scheduer Instance."
@@ -671,6 +643,7 @@ UI_Deployment(){
 	fi
 	#IAM_USER to be defined. et user
 	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "cd ~/UI_deploy_kendra_es && sudo chmod 755 UI_deployment_kendra.sh && ./UI_deployment_kendra.sh $ANALYTICS_SERVICE $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $GIT_BRANCH" 
+
 	RES="$?"
 	if [ $RES -ne 0 ]; then
 		echo "ERROR ::: UI_Deployment :: Failed to execute UI_deployment_kendra.sh to NAC_Scheduer Instance."
@@ -731,7 +704,7 @@ Schedule_CRON_JOB() {
 	###UI deplyment
 	UI_Deployment $ANALYTICS_SERVICE $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $GIT_BRANCH
 
-	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null create_layer.sh tracker_json.py ubuntu@$NAC_SCHEDULER_IP_ADDR:~/ #SSA
+	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null create_layer.sh tracker_json.py ubuntu@$NAC_SCHEDULER_IP_ADDR:~/
 	RES="$?"
 	if [ $RES -ne 0 ]; then
 		echo "ERROR ::: Failed to Copy create_layer.sh to NAC_Scheduer Instance."
@@ -739,7 +712,7 @@ Schedule_CRON_JOB() {
 	elif [ $RES -eq 0 ]; then
 		echo "INFO ::: create_layer.sh Uploaded Successfully to NAC_Scheduer Instance."
 	fi
-	if [ "$ANALYTICS_SERVICE" == "ES" ] || [ "$ANALYTICS_SERVICE" == "OS" ]; then
+	if [ "${ANALYTICS_SERVICE^^}" = "ES" ] || [ "${ANALYTICS_SERVICE^^}" = "OS" ]; then
 		# Kendra_UI_Deployment $ANALYTICS_SERVICE $AWS_REGION $AWS_PROFILE
 		# scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "$TFVARS_FILE_NAME" ubuntu@$NAC_SCHEDULER_IP_ADDR:~/
 		ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sudo cp tracker_json.py /var/www/Tracker_UI/docs/"
@@ -751,7 +724,7 @@ Schedule_CRON_JOB() {
 			echo "INFO ::: copy tracker_json.py to /var/www/Tracker_UI/docs/ Successfully to NAC_Scheduer Instance."
 		fi	
 	fi
-	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "dos2unix create_layer.sh" #SSA
+	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "dos2unix create_layer.sh"
 	RES="$?"
 	if [ $RES -ne 0 ]; then
 		echo "ERROR ::: Failed to do dos2unix create_layer.sh to NAC_Scheduer Instance."
@@ -771,10 +744,10 @@ Schedule_CRON_JOB() {
 	### Create Directory for each Volume
 	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $CRON_DIR_NAME ] && mkdir $CRON_DIR_NAME "
 	KENDRA_TRACKER_JSON_FOLDER="kendra_tracker_json_folder"
-	if [[ "$ANALYTICS_SERVICE" == "KENDRA" ]]; then
+	if [[ "${ANALYTICS_SERVICE^^}" = "KENDRA" ]]; then
 		#ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $KENDRA_TRACKER_JSON_FOLDER ] && mkdir $KENDRA_TRACKER_JSON_FOLDER "
 		# ES_UI_Deployment
-		scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null  tracker_json_kendra.py ubuntu@$NAC_SCHEDULER_IP_ADDR:~/ #SSA
+		scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null  tracker_json_kendra.py ubuntu@$NAC_SCHEDULER_IP_ADDR:~/
 		ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sudo cp tracker_json_kendra.py /var/www/Tracker_UI/docs/"
 		RES="$?"
 		if [ $RES -ne 0 ]; then
@@ -867,7 +840,15 @@ fi
 if [[ "${#ANALYTICS_SERVICE}" -lt 2 ]]; then
 	echo "INFO ::: The length of Service name provided as 2nd argument is too small, So, It will consider ES as the default Analytics Service."
 	ANALYTICS_SERVICE="ES" # Amazon_OpenSearch_Service as default
+    echo "$ANALYTICS_SERVICE"
+
+elif [ "${ANALYTICS_SERVICE^^}" == "ES" ] || [ "${ANALYTICS_SERVICE^^}" == "OS" ] || [ "${ANALYTICS_SERVICE^^}" == "KENDRA" ]; then
+    echo "Valid analytics service : $ANALYTICS_SERVICE"
+else
+    echo "ERROR ::: Please enter a valid analytics service."
+    exit 1
 fi
+
 if [[ "${#FREQUENCY}" -lt 2 ]]; then
 	echo "ERROR ::: Mandatory 3rd argument is invalid"
 	exit 1
@@ -1012,9 +993,9 @@ else
 fi
 
 ######################## Check If ES/KENDRA/ Domain Available ###############################################
-if [ "$ANALYTICS_SERVICE" = "ES" ] || [ "$ANALYTICS_SERVICE" = "OS" ]; then
+if [ "${ANALYTICS_SERVICE^^}" = "ES" ] || [ "${ANALYTICS_SERVICE^^}" = "OS" ]; then
 	check_if_opensearch_exists $OS_ADMIIN_SECRET $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $NAC_ES_SECURITYGROUP_ID
-elif [ "$ANALYTICS_SERVICE" = "KENDRA" ]; then
+elif [ "${ANALYTICS_SERVICE^^}" = "KENDRA" ]; then
 	check_if_kendra_exists $KENDRA_ADMIIN_SECRET $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $NAC_ES_SECURITYGROUP_ID
 else
 	echo "Invalid Input for KENDRA/ES"
@@ -1061,7 +1042,7 @@ if [ "$NAC_SCHEDULER_IP_ADDR" != "" ]; then
 	# elif [ $RES -eq 0 ]; then
 	# 	echo "INFO ::: $UI_DEPLOY_FOLDER folder created Successfully to NAC_Scheduer Instance."
 	# fi
-	# scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null UI_deployment_kendra.sh $TFVARS_NAC_SCHEDULER ubuntu@$NAC_SCHEDULER_IP_ADDR:~/$UI_DEPLOY_FOLDER #SSA
+	# scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null UI_deployment_kendra.sh $TFVARS_NAC_SCHEDULER ubuntu@$NAC_SCHEDULER_IP_ADDR:~/$UI_DEPLOY_FOLDER
 	# RES="$?"
 	# if [ $RES -ne 0 ]; then
 	# 	echo "ERROR ::: Failed to Copy UI_deployment_kendra.sh $TFVARS_NAC_SCHEDULER  to NAC_Scheduer Instance."
@@ -1181,8 +1162,7 @@ else
 	elif [ $RES -eq 0 ]; then
 		echo "INFO ::: $UI_DEPLOY_FOLDER folder created Successfully to NAC_Scheduer Instance."
 	fi
-	# cd "${GIT_REPO_NAME}"
-	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null UI_deployment_kendra.sh "${GIT_REPO_NAME}"/$TFVARS_NAC_SCHEDULER ubuntu@$NAC_SCHEDULER_IP_ADDR:~/$UI_DEPLOY_FOLDER #SSA
+	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null UI_deployment_kendra.sh "${GIT_REPO_NAME}"/$TFVARS_NAC_SCHEDULER ubuntu@$NAC_SCHEDULER_IP_ADDR:~/$UI_DEPLOY_FOLDER
 	RES="$?"
 	if [ $RES -ne 0 ]; then
 		echo "ERROR ::: Failed to Copy UI_deployment_kendra.sh $TFVARS_NAC_SCHEDULER  to NAC_Scheduer Instance."
