@@ -142,7 +142,7 @@ else
         echo "$FILE does not exist."
 fi
 
-if [ "$ANALYTICS_SERVICE" = "ES" ] || [ "$ANALYTICS_SERVICE" = "OS" ]; then
+if [ "${ANALYTICS_SERVICE^^}" = "ES" ] || [ "${ANALYTICS_SERVICE^^}" = "OS" ]; then
 
 	if [ "$SEARCH_API" == "" ] || [ "$SEARCH_API" == "null" ] ; then
 	    echo "INFO ::: API Gateway Deployemtn for ES"
@@ -179,7 +179,7 @@ if [ "$ANALYTICS_SERVICE" = "ES" ] || [ "$ANALYTICS_SERVICE" = "OS" ]; then
 	    echo "INFO ::: API GATEWAY is already present"
        fi
 #SchName="abc"
-elif [[ "$ANALYTICS_SERVICE" == "KENDRA" ]]; then
+elif [[ "${ANALYTICS_SERVICE^^}" == "KENDRA" ]]; then
 	current_folder
 sed -i 's#var schedulerName.*$#var schedulerName = \"'${nac_scheduler_name}'\"; #g' ~/UI_deploy_kendra_es/${REPO_FOLDER}/Tracker_UI/docs/fetch.js
 	#sudo rm -rf /var/www/Tracker_UI
