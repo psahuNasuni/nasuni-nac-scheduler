@@ -262,7 +262,7 @@ check_if_kendra_exists(){
 			echo "INFO ::: FINISH ::: GIT Clone FAILED for repo ::: $GIT_REPO_NAME"
 			exit 1
 		fi
-		cd "${GIT_REPO_NAME}"
+		 cd "${GIT_REPO_NAME}"
 		current_folder
 		echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: Creating TFVARS File."
 		##### RUN terraform init
@@ -276,6 +276,7 @@ check_if_kendra_exists(){
 		KENDRA_TFVARS="Kendra.tfvars"
 		echo "aws_profile="\"$AWS_PROFILE\" >$KENDRA_TFVARS
 		echo "kendra_admin_secret="\"$KENDRA_ADMIIN_SECRET\" >>$KENDRA_TFVARS
+		echo "region="\"$AWS_REGION\" >>$KENDRA_TFVARS
 		echo "" >>$KENDRA_TFVARS
 		echo "INFO ::: TFVARS $OS_TFVARS File created for OpenSearch Provisioning"
 		echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
@@ -829,8 +830,8 @@ ANALYTICS_SERVICE="$2" ### 2nd argument  ::: ANALYTICS_SERVICE
 FREQUENCY="$3"         ### 3rd argument  ::: FREQUENCY
 FOURTH_ARG="$4"        ### 4th argument  ::: User Secret a KVP file Or an existing Secret
 NAC_INPUT_KVP="$5"     ### 5th argument  ::: User defined KVP file for passing arguments to NAC
-GIT_BRANCH="main"	### Setting Up default Git Branch as "main". For debugging change the value of your branch and execute.
-USE_PRIVATE_IP="N"
+GIT_BRANCH="CTPROJECT-544"	### Setting Up default Git Branch as "main". For debugging change the value of your branch and execute.
+USE_PRIVATE_IP="Y"
 # GIT_BRANCH="Optimization"
 echo "INFO ::: Validating Arguments Passed to NAC_Scheduler.sh"
 if [ "${#NMC_VOLUME_NAME}" -lt 3 ]; then
