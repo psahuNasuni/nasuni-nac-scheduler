@@ -700,7 +700,7 @@ Schedule_CRON_JOB() {
 		NACSCHEDULER_UID=$(aws ec2 describe-instances --query "Reservations[].Instances[].InstanceId" --filters "Name=tag:Name,Values='$NAC_SCHEDULER_NAME'" "Name=instance-state-name,Values=running"  --profile $AWS_PROFILE | jq '.[]'|tr -d '"')
 		echo "INFO ::: NACSCHEDULER_UID :: $NACSCHEDULER_UID which will be added for lambda layer::: "
 	fi
-	echo "INFO ::: USER_SECRET :: $USER_SECRET ::: "
+	echo "INFO ::: USER_SECRET :: $USER_SECRET"
 	echo "aws_profile="\"$AWS_PROFILE\" >>$TFVARS_FILE_NAME
 	echo "region="\"$AWS_REGION\" >>$TFVARS_FILE_NAME
 	echo "volume_name="\"$NMC_VOLUME_NAME\" >>$TFVARS_FILE_NAME
@@ -721,8 +721,13 @@ Schedule_CRON_JOB() {
 		echo "INFO ::: $ARG_COUNT th Argument is supplied as ::: $NAC_INPUT_KVP"
 		append_nac_keys_values_to_tfvars $NAC_INPUT_KVP $TFVARS_FILE_NAME
 	fi
+
+	### Create Directory for each Volume
+	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $CRON_DIR_NAME ] && mkdir $CRON_DIR_NAME "
+	
 	if [ "${ANALYTICS_SERVICE^^}" == "EXP" ];then 
 		echo "INFO ::: Scheduling ExportOnly . . .  "
+		ls -alt
 	else
 		###UI deplyment
 		UI_Deployment $ANALYTICS_SERVICE $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $GIT_BRANCH
@@ -764,8 +769,7 @@ Schedule_CRON_JOB() {
 		elif [ $RES -eq 0 ]; then
 			echo "INFO ::: create_layer.sh executed Successfully to NAC_Scheduer Instance."
 		fi
-		### Create Directory for each Volume
-		ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $CRON_DIR_NAME ] && mkdir $CRON_DIR_NAME "
+		
 		KENDRA_TRACKER_JSON_FOLDER="kendra_tracker_json_folder"
 		if [[ "${ANALYTICS_SERVICE^^}" = "KENDRA" ]]; then
 			#ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $KENDRA_TRACKER_JSON_FOLDER ] && mkdir $KENDRA_TRACKER_JSON_FOLDER "
@@ -781,6 +785,7 @@ Schedule_CRON_JOB() {
 			fi
 		fi
 	fi
+	chmod 755 $(pwd)/*
 
 	### Copy TFVARS and provision_nac.sh to NACScheduler
 	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null provision_nac.sh "$TFVARS_FILE_NAME" ubuntu@$NAC_SCHEDULER_IP_ADDR:~/$CRON_DIR_NAME
