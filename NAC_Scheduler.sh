@@ -724,6 +724,7 @@ Schedule_CRON_JOB() {
 	fi
 	if [ "${ANALYTICS_SERVICE^^}" == "EXP" ];then 
 		# scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "$TFVARS_FILE_NAME" ubuntu@$NAC_SCHEDULER_IP_ADDR:~/
+		echo "&&&&&&&&&&&&&& 727 &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
 		ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sudo cp tracker_json.py /var/www/Tracker_UI/docs/"
 		RES="$?"
 		if [ $RES -ne 0 ]; then
@@ -734,6 +735,7 @@ Schedule_CRON_JOB() {
 		fi	
 	else
 		###UI deplyment
+		echo "&&&&&&&&&&&&&& 738 &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
 		UI_Deployment $ANALYTICS_SERVICE $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $GIT_BRANCH
 
 		scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null create_layer.sh tracker_json.py ubuntu@$NAC_SCHEDULER_IP_ADDR:~/
@@ -793,9 +795,7 @@ Schedule_CRON_JOB() {
 
 	### Copy TFVARS and provision_nac.sh to NACScheduler
 	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null provision_nac.sh "$TFVARS_FILE_NAME" ubuntu@$NAC_SCHEDULER_IP_ADDR:~/$CRON_DIR_NAME
-
 	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sudo chmod -R 775 $CRON_DIR_NAME"
-
 	RES="$?"
 	if [ $RES -ne 0 ]; then
 		echo "ERROR ::: Failed to Copy $TFVARS_FILE_NAME to NAC_Scheduer Instance."
@@ -805,6 +805,7 @@ Schedule_CRON_JOB() {
 	fi
 	rm -rf $TFVARS_FILE_NAME
 	#dos2unix command execute
+	echo "&&&&&&&&&&&&&& 807 &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
 	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "dos2unix ~/$CRON_DIR_NAME/provision_nac.sh"
 	### Check If CRON JOB is running for a specific VOLUME_NAME
 	CRON_VOL=$(ssh -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null ubuntu@"$NAC_SCHEDULER_IP_ADDR" "crontab -l |grep \"~/$CRON_DIR_NAME/$TFVARS_FILE_NAME\"")
