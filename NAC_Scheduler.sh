@@ -583,7 +583,7 @@ add_ip_to_sec_grp() {
 	echo "INFO ::: NEW_CIDR :- ${NEW_CIDR}"
 	### Get Security group of NAC Scheduler
 	SECURITY_GROUP_ID=$(aws ec2 describe-instances --query "Reservations[].Instances[].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,SecurityGroups:SecurityGroups[*]}" --filters "Name=tag:Name,Values='$NAC_SCHEDULER_NAME'" "Name=instance-state-name,Values=running" --region $AWS_REGION --profile $AWS_PROFILE | grep -e "GroupId" | cut -d":" -f 2 | tr -d '"')
-	echo $SECURITY_GROUP_ID
+	echo "INFO ::: $SECURITY_GROUP_ID"
 	echo "INFO ::: Security group of $NAC_SCHEDULER_NAME is $SECURITY_GROUP_ID"
 	status=$(aws ec2 authorize-security-group-ingress --group-id ${SECURITY_GROUP_ID} --profile "${AWS_PROFILE}" --protocol tcp --port 22 --cidr ${NEW_CIDR} 2>/dev/null)
 	if [ $? -eq 0 ]; then
@@ -880,7 +880,7 @@ if [[ "${#ANALYTICS_SERVICE}" -lt 2 ]]; then
 elif [ "${ANALYTICS_SERVICE^^}" == "EXP" ] || [ "${ANALYTICS_SERVICE^^}" == "ES" ] || [ "${ANALYTICS_SERVICE^^}" == "OS" ] || [ "${ANALYTICS_SERVICE^^}" == "KENDRA" ]; then
 	if [ "${ANALYTICS_SERVICE^^}" == "EXP" ];then 
 		### For Export Only making ANALYTICS_SERVICE as Optional Argument and hard coding value as EXPORTONLY 
-		ANALYTICS_SERVICE="EXPORTONLY"		
+		ANALYTICS_SERVICE="EXP"		
 	fi
 	echo "Valid analytics service : $ANALYTICS_SERVICE"
 else
