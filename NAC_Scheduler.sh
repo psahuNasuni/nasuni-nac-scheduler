@@ -818,7 +818,9 @@ Schedule_CRON_JOB() {
 		echo "INFO ::: Setting CRON JOB for $CRON_DIR_NAME as it is not present"
 		ssh -i "$PEM" ubuntu@$NAC_SCHEDULER_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "(crontab -l ; echo '*/$FREQUENCY * * * * cd ~/$CRON_DIR_NAME && /bin/bash provision_nac.sh  ~/$CRON_DIR_NAME/$TFVARS_FILE_NAME') | sort - | uniq - | crontab -"
 		if [ $? -eq 0 ]; then
-			echo "INFO :::  Scheduling CRON_JOB :: SUCCESS :: for NMC VOLUME and Service :: $CRON_DIR_NAME"
+			echo "INFO ::: Scheduling CRON_JOB :: SUCCESS :: for NMC VOLUME and Service :: $CRON_DIR_NAME"
+			echo "INFO ::: SSH to Scheduler as below:"
+			echo "ssh -i "$PEM" ubuntu@$NAC_SCHEDULER_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null"
 			exit 0
 		else
 			echo "ERROR :::  Scheduling CRON_JOB :: FAILED :: for NMC VOLUME and Service :: $CRON_DIR_NAME"
