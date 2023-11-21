@@ -324,6 +324,27 @@ validate_github() {
 	fi
 }
 
+which_os(){
+case "$(uname -sr)" in
+   Darwin*)
+     OS_TYPE='Mac'
+     ;;
+   Linux*Microsoft*)
+     OS_TYPE='WSL'  # Windows Subsystem for Linux
+     ;;
+   Linux*)
+     OS_TYPE='Linux'
+     ;;
+   CYGWIN*|MINGW*|MINGW32*|MSYS*)
+     OS_TYPE='WIN'
+     ;;
+   *)
+     OS_TYPE='Other OS' 
+     ;;
+esac
+
+}
+
 nmc_endpoint_accessibility() {
 	NAC_SCHEDULER_NAME="$1"
 	NAC_SCHEDULER_IP_ADDR="$2"
@@ -342,7 +363,22 @@ nmc_endpoint_accessibility() {
 	echo "INFO ::: NAC_SCHEDULER_IP_ADDR : "$NAC_SCHEDULER_IP_ADDR
 	py_file_name=$(ls check_nmc_visiblity.py)
 	echo "INFO ::: Executing Python code file : "$py_file_name
-	cat $py_file_name | ssh -i "$PEM" ubuntu@$NAC_SCHEDULER_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null python3 - $NMC_API_USERNAME $NMC_API_PASSWORD $NMC_API_ENDPOINT
+	#------------
+	OS_TYPE=""
+	which_os
+	echo "INFO ::: Which OS : $OS_TYPE"
+	if [ "${OS_TYPE^^}" == "LINUX" ];then 
+		cat $py_file_name | ssh -i "$PEM" ubuntu@$NAC_SCHEDULER_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null python3 - $NMC_API_USERNAME $NMC_API_PASSWORD $NMC_API_ENDPOINT
+	elif [ "${OS_TYPE^^}" == "WIN" ];then 
+		cat $py_file_name | ssh -i "$PEM" ubuntu@$NAC_SCHEDULER_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null python - $NMC_API_USERNAME $NMC_API_PASSWORD $NMC_API_ENDPOINT
+	else
+		# PYTHON_EXE_TYPE="NOT_SUPPORTED_OS"
+		echo "ERROR ::: Python exe type Not supported for the os type : ${OS_TYPE} !!!"
+		exit 1
+	fi
+	echo $?
+	# cat $py_file_name | ssh -i "$PEM" ubuntu@$NAC_SCHEDULER_IP_ADDR -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null $PYTHON_EXE_TYPE - $NMC_API_USERNAME $NMC_API_PASSWORD $NMC_API_ENDPOINT
+	# exit 88888
 	if [ $? -eq 0 ]; then
 		echo "INFO ::: NAC Scheduler with IP : ${NAC_SCHEDULER_IP_ADDR}, have access to NMC API ${NMC_API_ENDPOINT} "
 	else
