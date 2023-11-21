@@ -278,7 +278,6 @@ check_if_vpc_exists(){
 	INPUT_VPC="$1"
 
 	VPC_CHECK=`aws ec2 describe-vpcs --filters "Name=vpc-id,Values=$INPUT_VPC" --region ${AWS_REGION} --profile "${AWS_PROFILE}" | jq -r '.Vpcs[].VpcId'`
-	echo "$?"
 	VPC_0_SUBNET=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$INPUT_VPC" --region ${AWS_REGION} --profile "${AWS_PROFILE}" | jq -r '.Subnets[0].SubnetId')
 	VPC_IS="$VPC_CHECK"
 	SUBNET_IS="$VPC_0_SUBNET"
@@ -617,7 +616,7 @@ validate_aws_profile() {
 
 get_subnet_details(){
 	INPUT_SUBNET="$1"
-	echo "$INPUT_SUBNET"
+	echo "INFO ::: Input Subnet is : $INPUT_SUBNET"
 	SUBNET_CHECK=`aws ec2 describe-subnets --filters "Name=subnet-id,Values=$INPUT_SUBNET" --region $AWS_REGION --profile "$AWS_PROFILE"`
 	SUBNET=`echo $SUBNET_CHECK | jq -r '.Subnets[].SubnetId'`
 	SUBNET_VPC=`echo $SUBNET_CHECK | jq -r '.Subnets[].VpcId'`
@@ -723,19 +722,9 @@ Schedule_CRON_JOB() {
 		append_nac_keys_values_to_tfvars $NAC_INPUT_KVP $TFVARS_FILE_NAME
 	fi
 	if [ "${ANALYTICS_SERVICE^^}" == "EXP" ];then 
-		# scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "$TFVARS_FILE_NAME" ubuntu@$NAC_SCHEDULER_IP_ADDR:~/
-		echo "&&&&&&&&&&&&&& 727 &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-		ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sudo cp tracker_json.py /var/www/Tracker_UI/docs/"
-		RES="$?"
-		if [ $RES -ne 0 ]; then
-			echo "ERROR ::: Failed to copy tracker_json.py to /var/www/Tracker_UI/docs/."
-			exit 1
-		elif [ $RES -eq 0 ]; then
-			echo "INFO ::: copy tracker_json.py to /var/www/Tracker_UI/docs/ Successfully to NAC_Scheduer Instance."
-		fi	
+		echo "INFO ::: Scheduling ExportOnly . . .  "
 	else
 		###UI deplyment
-		echo "&&&&&&&&&&&&&& 738 &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
 		UI_Deployment $ANALYTICS_SERVICE $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $GIT_BRANCH
 
 		scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null create_layer.sh tracker_json.py ubuntu@$NAC_SCHEDULER_IP_ADDR:~/
@@ -805,7 +794,6 @@ Schedule_CRON_JOB() {
 	fi
 	rm -rf $TFVARS_FILE_NAME
 	#dos2unix command execute
-	echo "&&&&&&&&&&&&&& 807 &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
 	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "dos2unix ~/$CRON_DIR_NAME/provision_nac.sh"
 	### Check If CRON JOB is running for a specific VOLUME_NAME
 	CRON_VOL=$(ssh -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null ubuntu@"$NAC_SCHEDULER_IP_ADDR" "crontab -l |grep \"~/$CRON_DIR_NAME/$TFVARS_FILE_NAME\"")
@@ -876,13 +864,14 @@ fi
 if [[ "${#ANALYTICS_SERVICE}" -lt 2 ]]; then
 	echo "INFO ::: The length of Service name provided as 2nd argument is too small, So, It will consider ES as the default Analytics Service."
 	ANALYTICS_SERVICE="ES" # Amazon_OpenSearch_Service as default
-    echo "$ANALYTICS_SERVICE"
+    echo "INFO ::: No Analytics Service is Congigured as $ANALYTICS_SERVICE"
 elif [ "${ANALYTICS_SERVICE^^}" == "EXP" ] || [ "${ANALYTICS_SERVICE^^}" == "ES" ] || [ "${ANALYTICS_SERVICE^^}" == "OS" ] || [ "${ANALYTICS_SERVICE^^}" == "KENDRA" ]; then
 	if [ "${ANALYTICS_SERVICE^^}" == "EXP" ];then 
 		### For Export Only making ANALYTICS_SERVICE as Optional Argument and hard coding value as EXPORTONLY 
+    	echo "INFO ::: No Analytics Service configured. This will Schedule for ExportOnly !!!"
 		ANALYTICS_SERVICE="EXP"		
 	fi
-	echo "Valid analytics service : $ANALYTICS_SERVICE"
+	echo "INFO ::: Valid analytics service : $ANALYTICS_SERVICE"
 else
     echo "ERROR ::: Please enter a valid analytics service."
     exit 1
@@ -1096,7 +1085,7 @@ else
 		cd "${GIT_REPO_NAME}"
 	elif [ $RESULT -eq 128 ]; then
 		cd "${GIT_REPO_NAME}"
-		echo "$GIT_REPO_NAME"
+		echo "INFO ::: Git repo name $GIT_REPO_NAME"
 		COMMAND="git pull origin $GIT_BRANCH"
 		$COMMAND
 	fi
