@@ -24,7 +24,7 @@ add_Rules_To_SecurityGroup() {
     fi
 }
 
-Create_NAC_ES_SecurityGroup() {
+Create_NAC_Integration_SecurityGroup() {
     VPC_ID_INPUT="$1"
     PROFILE="$2"
     REGION="$3"
@@ -44,29 +44,11 @@ Create_NAC_ES_SecurityGroup() {
         SG_ID="$CHECK_SG"
         echo "INFO ::: Found the Security Group $SG_ID in VPC $VPC_ID !!!"
     fi
-	NAC_ES_SECURITYGROUP_ID="$SG_ID"
+	NAC_Integration_SecurityGroup_ID="$SG_ID"
     add_Rules_To_SecurityGroup $SG_ID 22 $VPC_CIDR $PROFILE $REGION
     add_Rules_To_SecurityGroup $SG_ID 80 $VPC_CIDR $PROFILE $REGION
     add_Rules_To_SecurityGroup $SG_ID 443 $VPC_CIDR $PROFILE $REGION
     add_Rules_To_SecurityGroup $SG_ID 8080 $VPC_CIDR $PROFILE $REGION
-}
-
-get_subnet_details(){
-	INPUT_SUBNET="$1"
-	echo "$INPUT_SUBNET"
-	SUBNET_CHECK=`aws ec2 describe-subnets --filters "Name=subnet-id,Values=$INPUT_SUBNET" --region $AWS_REGION --profile "$AWS_PROFILE"`
-	SUBNET=`echo $SUBNET_CHECK | jq -r '.Subnets[].SubnetId'`
-	SUBNET_VPC=`echo $SUBNET_CHECK | jq -r '.Subnets[].VpcId'`
-	VPC_IS="$SUBNET_VPC"
-	SUBNET_IS="$SUBNET"
-	AZ_IS=`echo $SUBNET_CHECK | jq -r '.Subnets[].AvailabilityZone'`
-	if [ "$SUBNET_IS" == "" ] || [ "$SUBNET_IS" == "null" ] ; then
-		echo "ERROR ::: Provided subnet $INPUT_SUBNET not found !!!" 
-		exit 1
-	else
-		echo "INFO ::: Subnet $SUBNET_IS found in VPC=$VPC_IS, AZ_IS=$AZ_IS"
-	fi
-
 }
 
 current_folder(){
@@ -82,7 +64,7 @@ check_if_opensearch_exists(){
 	GITHUB_ORGANIZATION="$4"
 	ES_DOMAIN_NAME="tt"
 	echo "INFO ::: ES_DOMAIN NAME : $ES_DOMAIN_NAME"
-	echo "INFO ::: NAC_ES_SecurityGroup :: $NAC_ES_SECURITYGROUP_ID"
+	echo "INFO ::: NAC_ES_SecurityGroup :: $NAC_Integration_SecurityGroup_ID"
 	echo "INFO ::: Subnet :: $SUBNET_IS"
 	######################## Check If ES Domain Available ###############################################
 	ES_DOMAIN_NAME=$(aws secretsmanager get-secret-value --secret-id "${OS_ADMIIN_SECRET}" --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.es_domain_name' 2> /dev/null)
@@ -185,7 +167,7 @@ check_if_opensearch_exists(){
 		echo "user_vpc_id="\"$USER_VPC_ID\" >>$OS_TFVARS
 		echo "use_private_ip="\"$USE_PRIVATE_IP\" >>$OS_TFVARS
 		echo "es_region="\"$AWS_REGION\" >>$OS_TFVARS
-		echo "nac_es_securitygroup_id="\"$NAC_ES_SECURITYGROUP_ID\" >>$OS_TFVARS
+		echo "nac_es_securitygroup_id="\"$NAC_Integration_SecurityGroup_ID\" >>$OS_TFVARS
 		echo "" >>$OS_TFVARS
 		echo "INFO ::: TFVARS $OS_TFVARS File created for OpenSearch Provisioning"
 		echo "INFO ::: Amazon_OpenSearch_Service provisioning ::: BEGIN ::: Executing ::: Terraform apply . . . . . . . . . . . . . . . . . . ."
@@ -214,13 +196,13 @@ check_if_kendra_exists(){
 	AWS_REGION="$2"
 	AWS_PROFILE="$3"
 	GITHUB_ORGANIZATION="$4"
-	NAC_ES_SECURITYGROUP_ID="$5"
+	NAC_Integration_SecurityGroup_ID="$5"
 	KENDRA_DOMAIN_NAME="tt"
 	echo "INFO ::: KENDRA_ADMIIN_SECRET : $KENDRA_ADMIIN_SECRET"
 	echo "INFO ::: AWS_REGION : $AWS_REGION"
 	echo "INFO ::: AWS_PROFILE : $AWS_PROFILE"
 	echo "INFO ::: GITHUB_ORGANIZATION : $GITHUB_ORGANIZATION"
-	echo "INFO ::: NAC_ES_SECURITYGROUP_ID : $NAC_ES_SECURITYGROUP_ID"
+	echo "INFO ::: NAC_Integration_SecurityGroup_ID : $NAC_Integration_SecurityGroup_ID"
 	KENDRA_DOMAIN_NAME=$(aws secretsmanager get-secret-value --secret-id "${KENDRA_ADMIIN_SECRET}" --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.index_id' 2> /dev/null)
 	echo "INFO ::: KENDRA_DOMAIN NAME : $KENDRA_DOMAIN_NAME"
 	IS_KENDRA="N"
@@ -347,7 +329,7 @@ nmc_endpoint_accessibility() {
 	NAC_SCHEDULER_IP_ADDR="$2"
     NMC_API_ENDPOINT="$3"
 	NMC_API_USERNAME="$4"
-	NMC_API_PASSWORD="$5" #14-19
+	NMC_API_PASSWORD="$5" 
 	PEM="$PEM_KEY_PATH"
 	
 	chmod 400 $PEM
@@ -673,13 +655,16 @@ Schedule_CRON_JOB() {
 	rm -rf "$TFVARS_FILE_NAME"
 	arn=$(aws sts get-caller-identity --profile $AWS_PROFILE| jq -r '.Arn' )
 	AWS_CURRENT_USER=$(cut -d'/' -f2 <<<"$arn")
-	echo "INFO ::: $AWS_CURRENT_USER which will be added for lambda layer::: "
-	NEW_NAC_IP=$(echo $NAC_SCHEDULER_IP_ADDR | tr '.' '-')
-	RND=$(( $RANDOM % 1000000 )); 
-	LAMBDA_LAYER_SUFFIX=$(echo $RND)
-	####AWS command for getting instance-id
-	NACSCHEDULER_UID=$(aws ec2 describe-instances --query "Reservations[].Instances[].InstanceId" --filters "Name=tag:Name,Values='$NAC_SCHEDULER_NAME'" "Name=instance-state-name,Values=running"  --profile $AWS_PROFILE | jq '.[]'|tr -d '"')
-	echo "INFO ::: NACSCHEDULER_UID :: $NACSCHEDULER_UID which will be added for lambda layer::: "
+	if [ "${ANALYTICS_SERVICE^^}" != "EXP" ];then 
+	
+		echo "INFO ::: $AWS_CURRENT_USER which will be added for lambda layer::: "
+		NEW_NAC_IP=$(echo $NAC_SCHEDULER_IP_ADDR | tr '.' '-')
+		RND=$(( $RANDOM % 1000000 )); 
+		LAMBDA_LAYER_SUFFIX=$(echo $RND)
+		####AWS command for getting instance-id
+		NACSCHEDULER_UID=$(aws ec2 describe-instances --query "Reservations[].Instances[].InstanceId" --filters "Name=tag:Name,Values='$NAC_SCHEDULER_NAME'" "Name=instance-state-name,Values=running"  --profile $AWS_PROFILE | jq '.[]'|tr -d '"')
+		echo "INFO ::: NACSCHEDULER_UID :: $NACSCHEDULER_UID which will be added for lambda layer::: "
+	fi
 	echo "INFO ::: USER_SECRET :: $USER_SECRET ::: "
 	echo "aws_profile="\"$AWS_PROFILE\" >>$TFVARS_FILE_NAME
 	echo "region="\"$AWS_REGION\" >>$TFVARS_FILE_NAME
@@ -691,7 +676,7 @@ Schedule_CRON_JOB() {
 	echo "user_subnet_id="\"$USER_SUBNET_ID\" >>$TFVARS_FILE_NAME
 	echo "frequency="\"$FREQUENCY\" >>$TFVARS_FILE_NAME
 	echo "nac_scheduler_name="\"$NAC_SCHEDULER_NAME\" >>$TFVARS_FILE_NAME
-	echo "nac_es_securitygroup_id="\"$NAC_ES_SECURITYGROUP_ID\" >>$TFVARS_FILE_NAME
+	echo "nac_es_securitygroup_id="\"$NAC_Integration_SecurityGroup_ID\" >>$TFVARS_FILE_NAME
 	echo "nacscheduler_uid="\"$NACSCHEDULER_UID\" >>$TFVARS_FILE_NAME
 	echo "service_name="\"$ANALYTICS_SERVICE\" >>$TFVARS_FILE_NAME
 	if [[ "$USE_PRIVATE_IP" == "Y" ]]; then
@@ -701,19 +686,7 @@ Schedule_CRON_JOB() {
 		echo "INFO ::: $ARG_COUNT th Argument is supplied as ::: $NAC_INPUT_KVP"
 		append_nac_keys_values_to_tfvars $NAC_INPUT_KVP $TFVARS_FILE_NAME
 	fi
-	###UI deplyment
-	UI_Deployment $ANALYTICS_SERVICE $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $GIT_BRANCH
-
-	scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null create_layer.sh tracker_json.py ubuntu@$NAC_SCHEDULER_IP_ADDR:~/
-	RES="$?"
-	if [ $RES -ne 0 ]; then
-		echo "ERROR ::: Failed to Copy create_layer.sh to NAC_Scheduer Instance."
-		exit 1
-	elif [ $RES -eq 0 ]; then
-		echo "INFO ::: create_layer.sh Uploaded Successfully to NAC_Scheduer Instance."
-	fi
-	if [ "${ANALYTICS_SERVICE^^}" = "ES" ] || [ "${ANALYTICS_SERVICE^^}" = "OS" ]; then
-		# Kendra_UI_Deployment $ANALYTICS_SERVICE $AWS_REGION $AWS_PROFILE
+	if [ "${ANALYTICS_SERVICE^^}" == "EXP" ];then 
 		# scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "$TFVARS_FILE_NAME" ubuntu@$NAC_SCHEDULER_IP_ADDR:~/
 		ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sudo cp tracker_json.py /var/www/Tracker_UI/docs/"
 		RES="$?"
@@ -723,38 +696,62 @@ Schedule_CRON_JOB() {
 		elif [ $RES -eq 0 ]; then
 			echo "INFO ::: copy tracker_json.py to /var/www/Tracker_UI/docs/ Successfully to NAC_Scheduer Instance."
 		fi	
-	fi
-	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "dos2unix create_layer.sh"
-	RES="$?"
-	if [ $RES -ne 0 ]; then
-		echo "ERROR ::: Failed to do dos2unix create_layer.sh to NAC_Scheduer Instance."
-		exit 1
-	elif [ $RES -eq 0 ]; then
-		echo "INFO ::: create_layer.sh executed dos2unix Successfully to NAC_Scheduer Instance."
-	fi
-	#IAM_USER to be defined. et user 
-	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sh create_layer.sh $AWS_PROFILE $NACSCHEDULER_UID" 
-	RES="$?"
-	if [ $RES -ne 0 ]; then
-		echo "ERROR ::: Scheduling CRON_JOB :: Failed to execute create_layer.sh to NAC_Scheduer Instance."
-		exit 1
-	elif [ $RES -eq 0 ]; then
-		echo "INFO ::: create_layer.sh executed Successfully to NAC_Scheduer Instance."
-	fi
-	### Create Directory for each Volume
-	ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $CRON_DIR_NAME ] && mkdir $CRON_DIR_NAME "
-	KENDRA_TRACKER_JSON_FOLDER="kendra_tracker_json_folder"
-	if [[ "${ANALYTICS_SERVICE^^}" = "KENDRA" ]]; then
-		#ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $KENDRA_TRACKER_JSON_FOLDER ] && mkdir $KENDRA_TRACKER_JSON_FOLDER "
-		# ES_UI_Deployment
-		scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null  tracker_json_kendra.py ubuntu@$NAC_SCHEDULER_IP_ADDR:~/
-		ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sudo cp tracker_json_kendra.py /var/www/Tracker_UI/docs/"
+	else
+		###UI deplyment
+		UI_Deployment $ANALYTICS_SERVICE $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $GIT_BRANCH
+
+		scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null create_layer.sh tracker_json.py ubuntu@$NAC_SCHEDULER_IP_ADDR:~/
 		RES="$?"
 		if [ $RES -ne 0 ]; then
-			echo "ERROR ::: Failed to Copy tracker_json_kendra.py to NAC_Scheduer Instance."
+			echo "ERROR ::: Failed to Copy create_layer.sh to NAC_Scheduer Instance."
 			exit 1
 		elif [ $RES -eq 0 ]; then
-			echo "INFO ::: tracker_json_kendra.py Uploaded Successfully to NAC_Scheduer Instance."
+			echo "INFO ::: create_layer.sh Uploaded Successfully to NAC_Scheduer Instance."
+		fi
+		if [ "${ANALYTICS_SERVICE^^}" = "ES" ] || [ "${ANALYTICS_SERVICE^^}" = "OS" ]; then
+			# Kendra_UI_Deployment $ANALYTICS_SERVICE $AWS_REGION $AWS_PROFILE
+			# scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "$TFVARS_FILE_NAME" ubuntu@$NAC_SCHEDULER_IP_ADDR:~/
+			ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sudo cp tracker_json.py /var/www/Tracker_UI/docs/"
+			RES="$?"
+			if [ $RES -ne 0 ]; then
+				echo "ERROR ::: Failed to copy tracker_json.py to /var/www/Tracker_UI/docs/."
+				exit 1
+			elif [ $RES -eq 0 ]; then
+				echo "INFO ::: copy tracker_json.py to /var/www/Tracker_UI/docs/ Successfully to NAC_Scheduer Instance."
+			fi	
+		fi
+		ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "dos2unix create_layer.sh"
+		RES="$?"
+		if [ $RES -ne 0 ]; then
+			echo "ERROR ::: Failed to do dos2unix create_layer.sh to NAC_Scheduer Instance."
+			exit 1
+		elif [ $RES -eq 0 ]; then
+			echo "INFO ::: create_layer.sh executed dos2unix Successfully to NAC_Scheduer Instance."
+		fi
+		#IAM_USER to be defined. et user 
+		ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sh create_layer.sh $AWS_PROFILE $NACSCHEDULER_UID" 
+		RES="$?"
+		if [ $RES -ne 0 ]; then
+			echo "ERROR ::: Scheduling CRON_JOB :: Failed to execute create_layer.sh to NAC_Scheduer Instance."
+			exit 1
+		elif [ $RES -eq 0 ]; then
+			echo "INFO ::: create_layer.sh executed Successfully to NAC_Scheduer Instance."
+		fi
+		### Create Directory for each Volume
+		ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $CRON_DIR_NAME ] && mkdir $CRON_DIR_NAME "
+		KENDRA_TRACKER_JSON_FOLDER="kendra_tracker_json_folder"
+		if [[ "${ANALYTICS_SERVICE^^}" = "KENDRA" ]]; then
+			#ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $KENDRA_TRACKER_JSON_FOLDER ] && mkdir $KENDRA_TRACKER_JSON_FOLDER "
+			# ES_UI_Deployment
+			scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null  tracker_json_kendra.py ubuntu@$NAC_SCHEDULER_IP_ADDR:~/
+			ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "sudo cp tracker_json_kendra.py /var/www/Tracker_UI/docs/"
+			RES="$?"
+			if [ $RES -ne 0 ]; then
+				echo "ERROR ::: Failed to Copy tracker_json_kendra.py to NAC_Scheduer Instance."
+				exit 1
+			elif [ $RES -eq 0 ]; then
+				echo "INFO ::: tracker_json_kendra.py Uploaded Successfully to NAC_Scheduer Instance."
+			fi
 		fi
 	fi
 
@@ -824,14 +821,14 @@ elif [ $# -lt 4 ]; then
 	exit 1
 fi
 #################### Validate Arguments Passed to NAC_Scheduler.sh ####################
-NMC_VOLUME_NAME="$1"   ### 1st argument  ::: NMC_VOLUME_NAME
-ANALYTICS_SERVICE="$2" ### 2nd argument  ::: ANALYTICS_SERVICE
-FREQUENCY="$3"         ### 3rd argument  ::: FREQUENCY
-FOURTH_ARG="$4"        ### 4th argument  ::: User Secret a KVP file Or an existing Secret
-NAC_INPUT_KVP="$5"     ### 5th argument  ::: User defined KVP file for passing arguments to NAC
-GIT_BRANCH="main"	### Setting Up default Git Branch as "main". For debugging change the value of your branch and execute.
+NMC_VOLUME_NAME="$1"   				### 1st argument  ::: NMC_VOLUME_NAME
+ANALYTICS_SERVICE="$2"				### 2nd argument  ::: ANALYTICS_SERVICE
+FREQUENCY="$3"         				### 3rd argument  ::: FREQUENCY
+USER_SECRET_OR_KVP_FILE="$4"        ### 4th argument  ::: User Secret a KVP file Or an existing Secret
+NAC_INPUT_KVP="$5"     				### 5th argument  ::: User defined KVP file for passing arguments to NAC
+GIT_BRANCH="main"					### Setting Up default Git Branch as "main". For debugging change the value of your branch and execute.
 USE_PRIVATE_IP="N"
-# GIT_BRANCH="Optimization"
+
 echo "INFO ::: Validating Arguments Passed to NAC_Scheduler.sh"
 if [ "${#NMC_VOLUME_NAME}" -lt 3 ]; then
 	echo "ERROR ::: Something went wrong. Please re-check 1st argument and provide a valid NMC Volume Name."
@@ -841,9 +838,12 @@ if [[ "${#ANALYTICS_SERVICE}" -lt 2 ]]; then
 	echo "INFO ::: The length of Service name provided as 2nd argument is too small, So, It will consider ES as the default Analytics Service."
 	ANALYTICS_SERVICE="ES" # Amazon_OpenSearch_Service as default
     echo "$ANALYTICS_SERVICE"
-
-elif [ "${ANALYTICS_SERVICE^^}" == "ES" ] || [ "${ANALYTICS_SERVICE^^}" == "OS" ] || [ "${ANALYTICS_SERVICE^^}" == "KENDRA" ]; then
-    echo "Valid analytics service : $ANALYTICS_SERVICE"
+elif [ "${ANALYTICS_SERVICE^^}" == "EXP" ] || [ "${ANALYTICS_SERVICE^^}" == "ES" ] || [ "${ANALYTICS_SERVICE^^}" == "OS" ] || [ "${ANALYTICS_SERVICE^^}" == "KENDRA" ]; then
+	if [ "${ANALYTICS_SERVICE^^}" == "EXP" ];then 
+		### For Export Only making ANALYTICS_SERVICE as Optional Argument and hard coding value as EXPORTONLY 
+		ANALYTICS_SERVICE="EXPORTONLY"		
+	fi
+	echo "Valid analytics service : $ANALYTICS_SERVICE"
 else
     echo "ERROR ::: Please enter a valid analytics service."
     exit 1
@@ -865,17 +865,19 @@ validate_aws_profile
 
 ########## Check If fourth argument is provided
 USER_SECRET_EXISTS="N"
-if [[ -n "$FOURTH_ARG" ]]; then
+if [[ -n "$USER_SECRET_OR_KVP_FILE" ]]; then
 	### Check If fourth argument is a file
-	if [ -f "$FOURTH_ARG" ]; then
-		echo "INFO ::: Fourth argument is a File ${FOURTH_ARG}"
+	if [ -f "$USER_SECRET_OR_KVP_FILE" ]; then
+		echo "INFO ::: Fourth argument is a File ${USER_SECRET_OR_KVP_FILE}"
 
 		### Parse the user data - KVP
-		parse_textfile_for_user_secret_keys_values "$FOURTH_ARG"
+		parse_textfile_for_user_secret_keys_values "$USER_SECRET_OR_KVP_FILE"
 		### Validate the user data file and the provided values
 		check_if_pem_file_exists $PEM_KEY_PATH
 		### nac_scheduler_name   - Get the value -- If its not null / "" then NAC_SCHEDULER_NAME = ${nac_scheduler_name}
-		create_JSON_from_Input_user_KVPfile $FOURTH_ARG >user_creds_"${NMC_VOLUME_NAME}"_"${ANALYTICS_SERVICE}".json
+		create_JSON_from_Input_user_KVPfile $USER_SECRET_OR_KVP_FILE >user_creds_"${NMC_VOLUME_NAME}"_"${ANALYTICS_SERVICE}".json
+		
+		### When User chose to Porvision Analytics services like Kendra and OpenSearch 	
 		### Formation of User Secret Name
 		USER_SECRET="prod/nac/admin/$NMC_VOLUME_NAME/$ANALYTICS_SERVICE"
 		### Verify the Secret Exists
@@ -911,11 +913,11 @@ if [[ -n "$FOURTH_ARG" ]]; then
 			elif [ $RES -eq 0 ]; then
 				echo "INFO ::: Secret $USER_SECRET Created"
 			fi
-		fi
+		fi		
 		rm -rf *"${NMC_VOLUME_NAME}"_"${ANALYTICS_SERVICE}".json
 	else ####  Fourth Argument is passed as User Secret Name
-		echo "INFO ::: Fourth Argument $FOURTH_ARG is passed as User Secret Name"
-		USER_SECRET="$FOURTH_ARG"
+		echo "INFO ::: Fourth Argument $USER_SECRET_OR_KVP_FILE is passed as User Secret Name"
+		USER_SECRET="$USER_SECRET_OR_KVP_FILE"
 		echo "INFO ::: AWS_PROFILE ::: $AWS_PROFILE"
 		### Verify the Secret Exists
 		USER_SECRET_EXISTS=$(check_if_secret_exists $USER_SECRET ${AWS_PROFILE} ${AWS_REGION}) # | jq -r .Name)
@@ -936,29 +938,30 @@ if [[ -n "$FOURTH_ARG" ]]; then
 		fi
 	fi
 else
-	echo "INFO ::: Fourth argument is NOT provided, So, It will consider prod/nac/admin as the default user secret."
+	echo "INFO ::: Fourth argument is NOT provided."
+	exit 1
 fi
 ######################  NAC Scheduler Instance is Available ##############################
 NAC_SCHEDULER_NAME=""
-### parse_textfile_for_nac_scheduler_name "$FOURTH_ARG"
-parse_4thArgument_for_nac_scheduler_name "$FOURTH_ARG"
+parse_4thArgument_for_nac_scheduler_name "$USER_SECRET_OR_KVP_FILE"
 
 ########################Create OS Admin Secret, If its not available ###############
+if [ "${ANALYTICS_SERVICE^^}" == "OS" ];then 
+	OS_ADMIIN_SECRET="nasuni-labs-os-admin"
+	### Verify the Secret Exists
+	OS_ADMIIN_SECRET_EXISTS=""
+	OS_ADMIIN_SECRET_EXISTS=$(check_if_secret_exists $OS_ADMIIN_SECRET $AWS_PROFILE $AWS_REGION)
+	echo "INFO ::: OS_ADMIIN_SECRET_EXISTS ::: $OS_ADMIIN_SECRET_EXISTS "
 
-OS_ADMIIN_SECRET="nasuni-labs-os-admin"
-### Verify the Secret Exists
-OS_ADMIIN_SECRET_EXISTS=""
-OS_ADMIIN_SECRET_EXISTS=$(check_if_secret_exists $OS_ADMIIN_SECRET $AWS_PROFILE $AWS_REGION)
-echo "INFO ::: OS_ADMIIN_SECRET_EXISTS ::: $OS_ADMIIN_SECRET_EXISTS "
 
-
-if [ "$OS_ADMIIN_SECRET_EXISTS" == "N" ]; then
-	Create_secret $OS_ADMIIN_SECRET $AWS_REGION $AWS_PROFILE 
-else
-	echo "INFO ::: Secret $OS_ADMIIN_SECRET Already Exists"
+	if [ "$OS_ADMIIN_SECRET_EXISTS" == "N" ]; then
+		Create_secret $OS_ADMIIN_SECRET $AWS_REGION $AWS_PROFILE 
+	else
+		echo "INFO ::: Secret $OS_ADMIIN_SECRET Already Exists"
+	fi
 fi
 ######################## Check If NAC_ES_Security Available ###############################################
-NAC_ES_SECURITYGROUP_ID=""
+NAC_Integration_SecurityGroup_ID=""
 if [ "$USER_SUBNET_ID" == "" ] || [ "$USER_SUBNET_ID" == "null" ] ; then
 	echo "ERROR ::: user_subnet_id Not provided in the user Secret"
 	get_default_subnet_details $AWS_REGION $AWS_PROFILE
@@ -975,38 +978,37 @@ else
 	USER_VPC_ID=$VPC_IS
 fi
 
-Create_NAC_ES_SecurityGroup $USER_VPC_ID $AWS_PROFILE $AWS_REGION
-echo "INFO ::: NAC_ES_SecurityGroup :: $NAC_ES_SECURITYGROUP_ID"
+Create_NAC_Integration_SecurityGroup $USER_VPC_ID $AWS_PROFILE $AWS_REGION
+echo "INFO ::: NAC_Integration_SecurityGroup :: $NAC_Integration_SecurityGroup_ID"
 
 ########################Create KENDRA Admin Secret, If its not available ###############
-
 KENDRA_ADMIIN_SECRET="nasuni-labs-kendra-admin"
 KENDRA_ADMIIN_SECRET_EXISTS=""
-KENDRA_ADMIIN_SECRET_EXISTS=$(check_if_secret_exists $KENDRA_ADMIIN_SECRET $AWS_PROFILE $AWS_REGION)
-echo "INFO ::: KENDRA_ADMIIN_SECRET_EXISTS ::: $KENDRA_ADMIIN_SECRET_EXISTS "
+if [ "${ANALYTICS_SERVICE^^}" == "KENDRA" ];then 
+	KENDRA_ADMIIN_SECRET_EXISTS=$(check_if_secret_exists $KENDRA_ADMIIN_SECRET $AWS_PROFILE $AWS_REGION)
+	echo "INFO ::: KENDRA_ADMIIN_SECRET_EXISTS ::: $KENDRA_ADMIIN_SECRET_EXISTS "
 
-
-if [ "$KENDRA_ADMIIN_SECRET_EXISTS" == "N" ]; then
-	Create_secret $KENDRA_ADMIIN_SECRET $AWS_REGION $AWS_PROFILE 
-else
-	echo "INFO ::: Secret $KENDRA_ADMIIN_SECRET Already Exists"
+	if [ "$KENDRA_ADMIIN_SECRET_EXISTS" == "N" ]; then
+		Create_secret $KENDRA_ADMIIN_SECRET $AWS_REGION $AWS_PROFILE 
+	else
+		echo "INFO ::: Secret $KENDRA_ADMIIN_SECRET Already Exists"
+	fi
 fi
-
 ######################## Check If ES/KENDRA/ Domain Available ###############################################
 if [ "${ANALYTICS_SERVICE^^}" = "ES" ] || [ "${ANALYTICS_SERVICE^^}" = "OS" ]; then
-	check_if_opensearch_exists $OS_ADMIIN_SECRET $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $NAC_ES_SECURITYGROUP_ID
+	check_if_opensearch_exists $OS_ADMIIN_SECRET $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $NAC_Integration_SecurityGroup_ID
 elif [ "${ANALYTICS_SERVICE^^}" = "KENDRA" ]; then
-	check_if_kendra_exists $KENDRA_ADMIIN_SECRET $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $NAC_ES_SECURITYGROUP_ID
+	check_if_kendra_exists $KENDRA_ADMIIN_SECRET $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $NAC_Integration_SecurityGroup_ID
+
+elif [ "${ANALYTICS_SERVICE^^}" == "EXP" ];then 
+	echo "INFO ::: Scheduling Export ONLY."
 else
-	echo "Invalid Input for KENDRA/ES"
+
+	echo "INFO ::: Invalid Input for KENDRA/ES"
 fi
 
 echo "INFO ::: Get IP Address of NAC Scheduler Instance"
 ######################  NAC Scheduler Instance is Available ##############################
-
-# NAC_SCHEDULER_NAME=""
-# ### parse_textfile_for_nac_scheduler_name "$FOURTH_ARG"
-# parse_4thArgument_for_nac_scheduler_name "$FOURTH_ARG"
 echo "INFO ::: nac_scheduler_name = $NAC_SCHEDULER_NAME "
 
 if [ "$NAC_SCHEDULER_NAME" != "" ]; then
@@ -1021,6 +1023,7 @@ if [ "$NAC_SCHEDULER_NAME" != "" ]; then
 		NAC_SCHEDULER_IP_ADDR=`aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PrivateIp:PrivateIpAddress}" --filters "Name=tag:Name,Values='$NAC_SCHEDULER_NAME'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" --profile ${AWS_PROFILE} | grep -e "PrivateIp" | cut -d":" -f 2 | tr -d '"' | tr -d ' '`
 	fi
 else
+	### Getting Public_IP of Default NAC Scheduler
 	NAC_SCHEDULER_IP_ADDR=$(aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:Tags[?Key=='Name']|[0].Value,Status:State.Name,PublicIP:PublicIpAddress}" --filters "Name=tag:Name,Values='NACScheduler'" "Name=instance-state-name,Values=running" --region "${AWS_REGION}" --profile ${AWS_PROFILE}| grep -e "PublicIP" | cut -d":" -f 2 | tr -d '"' | tr -d ' ')
 fi
 echo "INFO ::: NAC_SCHEDULER_IP_ADDR ::: $NAC_SCHEDULER_IP_ADDR"
@@ -1028,37 +1031,14 @@ if [ "$NAC_SCHEDULER_IP_ADDR" != "" ]; then
 	echo "INFO ::: NAC Scheduler Instance is Available. IP Address: $NAC_SCHEDULER_IP_ADDR"
 	### Call this function to add Local public IP to Security group of NAC_SCHEDULER IP
 	add_ip_to_sec_grp $NAC_SCHEDULER_IP_ADDR $NAC_SCHEDULER_NAME
-	###UI development
-	# echo "INFO ::: NAC_SCHEDULER_IP_ADDR :: $NAC_SCHEDULER_IP_ADDR"
-	# PEM="$PEM_KEY_PATH"
-	# check_if_pem_file_exists $PEM
-	# chmod 400 $PEM
-	# UI_DEPLOY_FOLDER="UI_deploy_kendra_es"
-	# ssh -i "$PEM" ubuntu@"$NAC_SCHEDULER_IP_ADDR" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null "[ ! -d $UI_DEPLOY_FOLDER ] && mkdir $UI_DEPLOY_FOLDER "
-	# RES="$?"
-	# if [ $RES -ne 0 ]; then
-	# 	echo "ERROR ::: Failed to create folder $UI_DEPLOY_FOLDER to NAC_Scheduer Instance."
-	# 	exit 1
-	# elif [ $RES -eq 0 ]; then
-	# 	echo "INFO ::: $UI_DEPLOY_FOLDER folder created Successfully to NAC_Scheduer Instance."
-	# fi
-	# scp -i "$PEM" -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null UI_deployment_kendra.sh $TFVARS_NAC_SCHEDULER ubuntu@$NAC_SCHEDULER_IP_ADDR:~/$UI_DEPLOY_FOLDER
-	# RES="$?"
-	# if [ $RES -ne 0 ]; then
-	# 	echo "ERROR ::: Failed to Copy UI_deployment_kendra.sh $TFVARS_NAC_SCHEDULER  to NAC_Scheduer Instance."
-	# 	exit 1
-	# elif [ $RES -eq 0 ]; then
-	# 	echo "INFO ::: UI_deployment_kendra.sh $TFVARS_NAC_SCHEDULER Uploaded Successfully to NAC_Scheduer Instance."
-	# fi
-	# exit 99
 	### nmc endpoint accessibility $NAC_SCHEDULER_NAME $NAC_SCHEDULER_IP_ADDR
 	nmc_endpoint_accessibility  $NAC_SCHEDULER_NAME $NAC_SCHEDULER_IP_ADDR $NMC_API_ENDPOINT $NMC_API_USERNAME $NMC_API_PASSWORD #458
 	Schedule_CRON_JOB $NAC_SCHEDULER_IP_ADDR $ANALYTICS_SERVICE
 
 ###################### NAC Scheduler EC2 Instance is NOT Available ##############################
 else
-	## "NAC Scheduler is not present. Creating new EC2 machine."
-	echo "INFO ::: NAC Scheduler Instance is not present. Creating new EC2 machine."
+	### "NAC Scheduler is not present. Creating new EC2 machine."
+	echo "INFO ::: NAC Scheduler Instance doesn't exist. Creating new EC2 machine as NAC_Scheduler."
 	########## Download NAC Scheduler Instance Provisioning Code from GitHub ##########
 	### GITHUB_ORGANIZATION defaults to nasuni-labs
 	REPO_FOLDER="nasuni-analyticsconnector-manager"
@@ -1099,7 +1079,7 @@ else
 	chmod 400 $PEM
 	echo "aws_profile="\"$AWS_PROFILE\" >>$TFVARS_NAC_SCHEDULER
 	echo "region="\"$AWS_REGION\" >>$TFVARS_NAC_SCHEDULER
-	echo "nac_es_securitygroup_id="\"$NAC_ES_SECURITYGROUP_ID\" >>$TFVARS_NAC_SCHEDULER
+	echo "nac_es_securitygroup_id="\"$NAC_Integration_SecurityGroup_ID\" >>$TFVARS_NAC_SCHEDULER
 	if [[ "$NAC_SCHEDULER_NAME" != "" ]]; then
 		echo "nac_scheduler_name="\"$NAC_SCHEDULER_NAME\" >>$TFVARS_NAC_SCHEDULER
 		### Create entries about the Pem Key in the TFVARS File
@@ -1125,12 +1105,12 @@ else
 	fi
 	echo "INFO ::: service_name - $ANALYTICS_SERVICE"
 	echo "service_name="\"$ANALYTICS_SERVICE\" >>$TFVARS_NAC_SCHEDULER
-	echo "$TFVARS_NAC_SCHEDULER created"
+	echo "INFO ::: $TFVARS_NAC_SCHEDULER created"
 	echo `cat $TFVARS_NAC_SCHEDULER`
 	echo "INFO ::: use_private_ip - $USE_PRIVATE_IP"
 	echo "INFO ::: user_vpc_id - $VPC_IS"
 	echo "INFO ::: user_subnet_id - $SUBNET_IS"
-
+# exit 888
 	dos2unix $TFVARS_NAC_SCHEDULER
 	COMMAND="terraform apply -var-file=$TFVARS_NAC_SCHEDULER -auto-approve"
 	$COMMAND

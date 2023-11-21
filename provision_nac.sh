@@ -133,6 +133,8 @@ validate_github() {
 	fi
 }
 
+############################### START - Execution ############################################
+
 read_TFVARS "$TFVARS_FILE"
 
 AWS_PROFILE=$(echo "$AWS_PROFILE" | tr -d '"')
@@ -150,15 +152,18 @@ echo SERVICE_NAME $SERVICE_NAME
 
 if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ]; then
 	OS_ADMIIN_SECRET="nasuni-labs-os-admin"
-else
+elif [ "${SERVICE_NAME^^}" = "KENDRA" ]
 	OS_ADMIIN_SECRET="nasuni-labs-kendra-admin"
+else
+	OS_ADMIIN_SECRET="export-only"
 fi
 ##################################### START TRACKER JSON Creation ###################################################################
 
-echo "NAC_Activity : Export In Progress"
+echo "INFO ::: NAC_Activity : Starting Export Process"
 KENDRA_URL=""
 ###Req generate_tracker_json.py start put it in if
 if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ]; then
+	echo "INFO ::: Initializing Export to Destination Bucket - OpenSearch_Flow . . . .   "
 	OS_URL=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.nac_es_url')
 	KIBANA_URL=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.nac_kibana_url')
 	DEFAULT_URL="/search/index.html"
@@ -187,9 +192,11 @@ if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ]; then
 	fi
 
 	generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
+elif [ "${SERVICE_NAME^^}" = "EXP" ]; then
+	echo "INFO ::: Initializing Export Only to Destination Bucket - Export Only.   "
 
 else
-	echo "Kendra stuff"
+	echo "INFO ::: Initializing Export to Destination Bucket - Kendra_flow . . . .  "
 	INDEX_NAME=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.index_name')
 	INDEX_ID=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.index_id')
 	DEFAULT_URL="/search/index.html"
@@ -210,15 +217,15 @@ else
 	if [ -f "$JSON_FILE_PATH" ] ; then 
 		TRACEPATH="${NMC_VOLUME_NAME}_${ANALYTICS_SERVICE}"
 		TRACKER_JSON=$(cat $JSON_FILE_PATH)
-		echo "Tracker json" $TRACKER_JSON
+		echo "INFO ::: Tracker json" $TRACKER_JSON
 		LATEST_TOC_HANDLE_PROCESSED=$(echo $TRACKER_JSON | jq -r .INTEGRATIONS.\"$TRACEPATH\"._NAC_activity.latest_toc_handle_processed)
 		#if [ -z "$LATEST_TOC_HANDLE_PROCESSED" -a "$LATEST_TOC_HANDLE_PROCESSED" == " " ]; then	
 		if [ -z "$LATEST_TOC_HANDLE_PROCESSED" ] || [ "$LATEST_TOC_HANDLE_PROCESSED" == " " ] || [ "$LATEST_TOC_HANDLE_PROCESSED" == "null" ]; then	
  			LATEST_TOC_HANDLE_PROCESSED="-"
 		fi
-		echo "INFO LATEST_TOC_HANDLE PROCESSED"  $LATEST_TOC_HANDLE_PROCESSED
+		echo "INFO ::: LATEST_TOC_HANDLE PROCESSED"  $LATEST_TOC_HANDLE_PROCESSED
 	fi
-	echo "INDEX_ID :: $INDEX_ID"
+	echo "INFO ::: INDEX_ID :: $INDEX_ID"
 	generate_tracker_json_kendra $INDEX_NAME $INDEX_ID $DEFAULT_URL $FREQUENCY $USER_SECRET  $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME $KENDRA_URL
 	
 fi
@@ -228,13 +235,15 @@ pwd
 echo "INFO ::: current user :-"`whoami`
 ########## Download NAC Provisioning Code from GitHub ##########
 ### GITHUB_ORGANIZATION defaults to nasuni-labs
-# REPO_FOLDER="nasuni-analyticsconnector-opensearch"
+### REPO_FOLDER="nasuni-analyticsconnector-opensearch"
 if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ]; then 
 	if [ "$USE_PRIVATE_IP" == "N" ] || [ "$USE_PRIVATE_IP" == null ] || [ "$USE_PRIVATE_IP" == "" ]; then
         	REPO_FOLDER="nasuni-analyticsconnector-opensearch-public"
 	else
 	        REPO_FOLDER="nasuni-analyticsconnector-opensearch"
 	fi
+elif [ "${SERVICE_NAME^^}" = "EXP" ];then
+	REPO_FOLDER="nasuni-analyticsconnector-exportonly"
 else
 	REPO_FOLDER="nasuni-analyticsconnector-kendra"
 fi
@@ -272,11 +281,11 @@ NMC_VOLUME_NAME_1=$(echo $NMC_VOLUME_NAME|tr -d '"')
 ANALYTICS_SERVICE_1=$(echo $ANALYTICS_SERVICE|tr -d '"')
 NAC_SCHEDULER_NAME_1=$(echo $NAC_SCHEDULER_NAME|tr -d '"')
 
-#JSON_FILE_PATH="$HOME/TrackerJson/${NAC_SCHEDULER_NAME_1}_tracker.json"
+###JSON_FILE_PATH="$HOME/TrackerJson/${NAC_SCHEDULER_NAME_1}_tracker.json"
 
 ######Req for generate_tracker_json for kendra if condition
-if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ]; then
-	echo $JSON_FILE_PATH
+if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ] || [ "${SERVICE_NAME^^}" = "EXP" ]; then
+	echo "INFO ::: tracker_json for OpenSearch_flow $JSON_FILE_PATH "
 	LATEST_TOC_HANDLE=""
 	if [ -f "$JSON_FILE_PATH" ] ; then
 		TRACEPATH="${NMC_VOLUME_NAME_1}_${ANALYTICS_SERVICE_1}"
@@ -298,13 +307,12 @@ if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ]; then
 
 	FOLDER_PATH=`pwd`
 
-	##appending latest_toc_handle_processed to TFVARS_FILE
+	###appending latest_toc_handle_processed to TFVARS_FILE
 	echo "PrevUniFSTOCHandle="\"$LATEST_TOC_HANDLE\" >>$FOLDER_PATH/$TFVARS_FILE
 
-	####Req 
 else
-	echo "Kendra stuff"
-	echo $JSON_FILE_PATH
+	echo "INFO ::: Kendra stuff"
+	echo "INFO ::: tracker_json for Kendra_flow $JSON_FILE_PATH "
 	LATEST_TOC_HANDLE=""
 	if [ -f "$JSON_FILE_PATH" ] ; then
 		TRACEPATH="${NMC_VOLUME_NAME_1}_${ANALYTICS_SERVICE_1}"
@@ -331,7 +339,6 @@ else
 
 
 fi
-##exit 99
 ##### RUN terraform init
 echo "INFO ::: NAC provisioning ::: BEGIN - Executing ::: Terraform init."
 COMMAND="terraform init"
@@ -347,16 +354,24 @@ if [ $? -eq 0 ]; then
 	echo "INFO ::: NAC provisioning ::: FINISH ::: Terraform apply ::: SUCCESS"
 	
 	######Req for generate_tracker_json for kendra if condition
-	if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ]; then
+	if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ] ; then
 
 		echo "NAC_Activity : Export Completed. Indexing in Progress"
 		CURRENT_STATE="Export-completed-And-Indexing-In-progress"
 		LATEST_TOC_HANDLE_PROCESSED=$(terraform output -raw latest_toc_handle_processed)
 		echo "INFO ::: LATEST_TOC_HANDLE_PROCESSED for NAC Discovery is : $LATEST_TOC_HANDLE_PROCESSED"
 		generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
+	elif [ "${SERVICE_NAME^^}" = "EXP" ] ; then
+
+		echo "NAC_Activity : Export Completed."
+		CURRENT_STATE="Export-completed"
+		LATEST_TOC_HANDLE_PROCESSED=$(terraform output -raw latest_toc_handle_processed)
+		echo "INFO ::: Latest Processed Snapshot ID (i.e. latest_toc_handle_processed) is : $LATEST_TOC_HANDLE_PROCESSED"
+		generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
+	
 	else
-		echo "Kendra Execution"
-		echo "NAC_Activity : Export Completed. Indexing in Progress"
+		echo "INFO ::: Kendra Execution"
+		echo "INFO ::: NAC_Activity : Export Completed. Indexing in Progress"
 		CURRENT_STATE="Export-completed-And-Indexing-In-progress"
 		LATEST_TOC_HANDLE_PROCESSED=$(terraform output -raw latest_toc_handle_processed)
 		echo "INFO ::: LATEST_TOC_HANDLE_PROCESSED for NAC Discovery is : $LATEST_TOC_HANDLE_PROCESSED"
@@ -373,6 +388,10 @@ else
 		CURRENT_STATE="Export-Failed-And-Indexing-Failed"
 		generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
 	##exit 1
+	elif [ "${SERVICE_NAME^^}" = "EXP" ] ; then
+		echo "NAC_Activity : Export Failed"
+		CURRENT_STATE="Export-Failed"
+		generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
 	else
 		echo "Kendra Execution"
 		echo "NAC_Activity : Export Failed/Indexing Failed"
@@ -380,100 +399,104 @@ else
 		generate_tracker_json_kendra $INDEX_NAME $INDEX_ID $DEFAULT_URL $FREQUENCY $USER_SECRET  $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME $KENDRA_URL
 
 	fi
-    fi
-    sleep 300
-
-    echo "NAC_Activity : Indexing Completed"
-    MOST_RECENT_RUN=$(date "+%Y:%m:%d-%H:%M:%S")
-    CURRENT_STATE="Indexing-Completed"
-
-    INTERNAL_SECRET=$(head -n 1 nac_uniqui_id.txt  | tr -d "'")
-    echo "INFO ::: Internal secret for NAC Discovery is : $INTERNAL_SECRET"
-
-    ######Req for generate_tracker_json for kendra if condition
-    if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ]; then
-	    generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
-    else
-	   echo "Kendra execution"
-	   generate_tracker_json_kendra $INDEX_NAME $INDEX_ID $DEFAULT_URL $FREQUENCY $USER_SECRET  $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME $KENDRA_URL
-    fi	   
-   ######Req for generate_tracker_json for kendra if condition
-
-
-##Get the NAC discovery lambda function name
-DISCOVERY_LAMBDA_NAME=$(aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name')
-
-if [ -n "$DISCOVERY_LAMBDA_NAME" ]; then
-	echo "INFO ::: Discovery lambda name :::not empty"
-else
-	echo "INFO ::: Discovery lambda name :::empty"
 fi
 
-echo "INFO ::: Discovery lambda name ::: ${DISCOVERY_LAMBDA_NAME}"
-i_cnt=0
-### Check If Lambda Execution Completed ?
-LAST_UPDATE_STATUS="running"
-CLEANUP="Y"
-if [ "$CLEANUP" != "Y" ]; then
+    sleep 300
+	if [ "${SERVICE_NAME^^}" = "EXP" ] ; then
 
-	if [ -z "$DISCOVERY_LAMBDA_NAME"  ]; then
-		CLEANUP="Y"
+    
 	else
-		while [ "$LAST_UPDATE_STATUS" != "InProgress" ]; do
-			LAST_UPDATE_STATUS=$(aws lambda get-function-configuration --function-name "$DISCOVERY_LAMBDA_NAME" --region "${AWS_REGION}" | jq -r '.LastUpdateStatus')
-			echo "LAST_UPDATE_STATUS ::: $LAST_UPDATE_STATUS"
-			if [ "$LAST_UPDATE_STATUS" == "Successful" ]; then
-				echo "INFO ::: Lambda execution COMPLETED. Preparing for cleanup of NAC Stack and dependent resources . . . . . . . . . . "
-				CLEANUP="Y"
-				break
-			elif [ "$LAST_UPDATE_STATUS" == "Failed" ]; then
-				echo "INFO ::: Lambda execution FAILED. Preparing for cleanup of NAC Stack and dependent resources . . . . . . . . . .  "
-				CLEANUP="Y"
-				break
-			elif [[ "$LAST_UPDATE_STATUS" == "" || "$LAST_UPDATE_STATUS" == null ]]; then
-				echo "INFO ::: Lambda Function Not found."
-				CLEANUP="Y"
-				break
-	    fi
-	    ((i_cnt++)) || true
+		echo "NAC_Activity : Indexing Completed"
+		MOST_RECENT_RUN=$(date "+%Y:%m:%d-%H:%M:%S")
+		CURRENT_STATE="Indexing-Completed"
 
-	    echo " %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% $((i_cnt))"
-	    if [ $((i_cnt)) -eq 5 ]; then
-		    if [[ -z "${LAST_UPDATE_STATUS}" ]]; then
-			    echo "WARN ::: System TimeOut"
-			    CLEANUP="Y"
-			    break
+		INTERNAL_SECRET=$(head -n 1 nac_uniqui_id.txt  | tr -d "'")
+		echo "INFO ::: Internal secret for NAC Discovery is : $INTERNAL_SECRET"
+
+		######Req for generate_tracker_json for kendra if condition
+		if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ]; then
+			generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
+		else
+			echo "Kendra execution"
+			generate_tracker_json_kendra $INDEX_NAME $INDEX_ID $DEFAULT_URL $FREQUENCY $USER_SECRET  $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME $KENDRA_URL
+		fi	   
+		######Req for generate_tracker_json for kendra if condition
+
+
+		##Get the NAC discovery lambda function name
+		DISCOVERY_LAMBDA_NAME=$(aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name')
+
+		if [ -n "$DISCOVERY_LAMBDA_NAME" ]; then
+			echo "INFO ::: Discovery lambda name :::not empty"
+		else
+			echo "INFO ::: Discovery lambda name :::empty"
 		fi
 
-	    fi
-    done
-    fi
-fi
-echo "INFO ::: CleanUp Flag: $CLEANUP"
-###################################################
-#if [ "$CLEANUP" == "Y" ]; then
-echo "INFO ::: Lambda execution COMPLETED."
-echo "INFO ::: STARTED ::: CLEANUP NAC STACK and dependent resources . . . . . . . . . . . . . . . . . . . . ."
+		echo "INFO ::: Discovery lambda name ::: ${DISCOVERY_LAMBDA_NAME}"
+		i_cnt=0
+		### Check If Lambda Execution Completed ?
+		LAST_UPDATE_STATUS="running"
+		CLEANUP="Y"
+		if [ "$CLEANUP" != "Y" ]; then
 
-pwd
-echo "INFO ::: pwd" pwd
-UNIQUE_ID=$(cat nac_uniqui_id.txt | cut -d - -f4)
-echo "INFO ::: UNIQUE_ID ::: $UNIQUE_ID "
+			if [ -z "$DISCOVERY_LAMBDA_NAME"  ]; then
+				CLEANUP="Y"
+			else
+				while [ "$LAST_UPDATE_STATUS" != "InProgress" ]; do
+					LAST_UPDATE_STATUS=$(aws lambda get-function-configuration --function-name "$DISCOVERY_LAMBDA_NAME" --region "${AWS_REGION}" | jq -r '.LastUpdateStatus')
+					echo "LAST_UPDATE_STATUS ::: $LAST_UPDATE_STATUS"
+					if [ "$LAST_UPDATE_STATUS" == "Successful" ]; then
+						echo "INFO ::: Lambda execution COMPLETED. Preparing for cleanup of NAC Stack and dependent resources . . . . . . . . . . "
+						CLEANUP="Y"
+						break
+					elif [ "$LAST_UPDATE_STATUS" == "Failed" ]; then
+						echo "INFO ::: Lambda execution FAILED. Preparing for cleanup of NAC Stack and dependent resources . . . . . . . . . .  "
+						CLEANUP="Y"
+						break
+					elif [[ "$LAST_UPDATE_STATUS" == "" || "$LAST_UPDATE_STATUS" == null ]]; then
+						echo "INFO ::: Lambda Function Not found."
+						CLEANUP="Y"
+						break
+				fi
+				((i_cnt++)) || true
 
-aws s3 rm --recursive s3://nasuni-share-data-bucket-storage/nmc_api_data_$UNIQUE_ID/ --profile ${AWS_PROFILE}
-if [ $? -eq 0 ]; then
-        echo "INFO ::: deleted files from nasuni-share-data-bucket-storage bucket and folder nmc_api_data_$UNIQUE_ID"      
-else
-        echo "INFO ::: Error in deleted files from nasuni-share-data-bucket-storage bucket and folder nmc_api_data_$UNIQUE_ID"
-fi
+				echo " %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% $((i_cnt))"
+				if [ $((i_cnt)) -eq 5 ]; then
+					if [[ -z "${LAST_UPDATE_STATUS}" ]]; then
+						echo "WARN ::: System TimeOut"
+						CLEANUP="Y"
+						break
+				fi
+
+				fi
+			done
+			fi
+		fi
+		echo "INFO ::: CleanUp Flag: $CLEANUP"
+		###################################################
+		#if [ "$CLEANUP" == "Y" ]; then
+		echo "INFO ::: Lambda execution COMPLETED."
+		echo "INFO ::: STARTED ::: CLEANUP NAC STACK and dependent resources . . . . . . . . . . . . . . . . . . . . ."
+
+		pwd
+		echo "INFO ::: pwd" pwd
+		UNIQUE_ID=$(cat nac_uniqui_id.txt | cut -d - -f4)
+		echo "INFO ::: UNIQUE_ID ::: $UNIQUE_ID "
+
+		aws s3 rm --recursive s3://nasuni-share-data-bucket-storage/nmc_api_data_$UNIQUE_ID/ --profile ${AWS_PROFILE}
+		if [ $? -eq 0 ]; then
+				echo "INFO ::: deleted files from nasuni-share-data-bucket-storage bucket and folder nmc_api_data_$UNIQUE_ID"      
+		else
+				echo "INFO ::: Error in deleted files from nasuni-share-data-bucket-storage bucket and folder nmc_api_data_$UNIQUE_ID"
+		fi
+	fi
 
 # ##### RUN terraform destroy to CLEANUP NAC STACK and dependent resources
 
 COMMAND="terraform destroy -var-file=${TFVARS_FILE} -auto-approve"
 $COMMAND
 echo "INFO ::: COMPLETED ::: CLEANUP NAC STACK and dependent resources ! ! ! ! "
-#    exit 0
-#fi
+
 END=$(date +%s)
 secs=$((END - START))
 DIFF=$(printf '%02dh:%02dm:%02ds\n' $((secs/3600)) $((secs%3600/60)) $((secs%60)))
