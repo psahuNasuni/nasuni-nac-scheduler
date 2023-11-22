@@ -152,7 +152,7 @@ echo SERVICE_NAME $SERVICE_NAME
 
 if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ]; then
 	OS_ADMIIN_SECRET="nasuni-labs-os-admin"
-elif [ "${SERVICE_NAME^^}" = "KENDRA" ]
+elif [ "${SERVICE_NAME^^}" = "KENDRA" ];then
 	OS_ADMIIN_SECRET="nasuni-labs-kendra-admin"
 else
 	OS_ADMIIN_SECRET="export-only"
@@ -401,95 +401,95 @@ else
 	fi
 fi
 
-    sleep 300
-	if [ "${SERVICE_NAME^^}" = "EXP" ] ; then
+sleep 300
+if [ "${SERVICE_NAME^^}" = "EXP" ] ; then
+	echo "INFO ::: EXPORT Completed"
+	exit 0
+else
+	echo "NAC_Activity : Indexing Completed"
+	MOST_RECENT_RUN=$(date "+%Y:%m:%d-%H:%M:%S")
+	CURRENT_STATE="Indexing-Completed"
 
-    
+	INTERNAL_SECRET=$(head -n 1 nac_uniqui_id.txt  | tr -d "'")
+	echo "INFO ::: Internal secret for NAC Discovery is : $INTERNAL_SECRET"
+
+	######Req for generate_tracker_json for kendra if condition
+	if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ]; then
+		generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
 	else
-		echo "NAC_Activity : Indexing Completed"
-		MOST_RECENT_RUN=$(date "+%Y:%m:%d-%H:%M:%S")
-		CURRENT_STATE="Indexing-Completed"
+		echo "Kendra execution"
+		generate_tracker_json_kendra $INDEX_NAME $INDEX_ID $DEFAULT_URL $FREQUENCY $USER_SECRET  $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME $KENDRA_URL
+	fi	   
+	######Req for generate_tracker_json for kendra if condition
 
-		INTERNAL_SECRET=$(head -n 1 nac_uniqui_id.txt  | tr -d "'")
-		echo "INFO ::: Internal secret for NAC Discovery is : $INTERNAL_SECRET"
 
-		######Req for generate_tracker_json for kendra if condition
-		if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ]; then
-			generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
+	##Get the NAC discovery lambda function name
+	DISCOVERY_LAMBDA_NAME=$(aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name')
+
+	if [ -n "$DISCOVERY_LAMBDA_NAME" ]; then
+		echo "INFO ::: Discovery lambda name :::not empty"
+	else
+		echo "INFO ::: Discovery lambda name :::empty"
+	fi
+
+	echo "INFO ::: Discovery lambda name ::: ${DISCOVERY_LAMBDA_NAME}"
+	i_cnt=0
+	### Check If Lambda Execution Completed ?
+	LAST_UPDATE_STATUS="running"
+	CLEANUP="Y"
+	if [ "$CLEANUP" != "Y" ]; then
+
+		if [ -z "$DISCOVERY_LAMBDA_NAME"  ]; then
+			CLEANUP="Y"
 		else
-			echo "Kendra execution"
-			generate_tracker_json_kendra $INDEX_NAME $INDEX_ID $DEFAULT_URL $FREQUENCY $USER_SECRET  $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME $KENDRA_URL
-		fi	   
-		######Req for generate_tracker_json for kendra if condition
-
-
-		##Get the NAC discovery lambda function name
-		DISCOVERY_LAMBDA_NAME=$(aws secretsmanager get-secret-value --secret-id "$INTERNAL_SECRET" --region "${AWS_REGION}"  --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.discovery_lambda_name')
-
-		if [ -n "$DISCOVERY_LAMBDA_NAME" ]; then
-			echo "INFO ::: Discovery lambda name :::not empty"
-		else
-			echo "INFO ::: Discovery lambda name :::empty"
-		fi
-
-		echo "INFO ::: Discovery lambda name ::: ${DISCOVERY_LAMBDA_NAME}"
-		i_cnt=0
-		### Check If Lambda Execution Completed ?
-		LAST_UPDATE_STATUS="running"
-		CLEANUP="Y"
-		if [ "$CLEANUP" != "Y" ]; then
-
-			if [ -z "$DISCOVERY_LAMBDA_NAME"  ]; then
-				CLEANUP="Y"
-			else
-				while [ "$LAST_UPDATE_STATUS" != "InProgress" ]; do
-					LAST_UPDATE_STATUS=$(aws lambda get-function-configuration --function-name "$DISCOVERY_LAMBDA_NAME" --region "${AWS_REGION}" | jq -r '.LastUpdateStatus')
-					echo "LAST_UPDATE_STATUS ::: $LAST_UPDATE_STATUS"
-					if [ "$LAST_UPDATE_STATUS" == "Successful" ]; then
-						echo "INFO ::: Lambda execution COMPLETED. Preparing for cleanup of NAC Stack and dependent resources . . . . . . . . . . "
-						CLEANUP="Y"
-						break
-					elif [ "$LAST_UPDATE_STATUS" == "Failed" ]; then
-						echo "INFO ::: Lambda execution FAILED. Preparing for cleanup of NAC Stack and dependent resources . . . . . . . . . .  "
-						CLEANUP="Y"
-						break
-					elif [[ "$LAST_UPDATE_STATUS" == "" || "$LAST_UPDATE_STATUS" == null ]]; then
-						echo "INFO ::: Lambda Function Not found."
-						CLEANUP="Y"
-						break
-				fi
-				((i_cnt++)) || true
-
-				echo " %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% $((i_cnt))"
-				if [ $((i_cnt)) -eq 5 ]; then
-					if [[ -z "${LAST_UPDATE_STATUS}" ]]; then
-						echo "WARN ::: System TimeOut"
-						CLEANUP="Y"
-						break
-				fi
-
-				fi
-			done
+			while [ "$LAST_UPDATE_STATUS" != "InProgress" ]; do
+				LAST_UPDATE_STATUS=$(aws lambda get-function-configuration --function-name "$DISCOVERY_LAMBDA_NAME" --region "${AWS_REGION}" | jq -r '.LastUpdateStatus')
+				echo "LAST_UPDATE_STATUS ::: $LAST_UPDATE_STATUS"
+				if [ "$LAST_UPDATE_STATUS" == "Successful" ]; then
+					echo "INFO ::: Lambda execution COMPLETED. Preparing for cleanup of NAC Stack and dependent resources . . . . . . . . . . "
+					CLEANUP="Y"
+					break
+				elif [ "$LAST_UPDATE_STATUS" == "Failed" ]; then
+					echo "INFO ::: Lambda execution FAILED. Preparing for cleanup of NAC Stack and dependent resources . . . . . . . . . .  "
+					CLEANUP="Y"
+					break
+				elif [[ "$LAST_UPDATE_STATUS" == "" || "$LAST_UPDATE_STATUS" == null ]]; then
+					echo "INFO ::: Lambda Function Not found."
+					CLEANUP="Y"
+					break
 			fi
-		fi
-		echo "INFO ::: CleanUp Flag: $CLEANUP"
-		###################################################
-		#if [ "$CLEANUP" == "Y" ]; then
-		echo "INFO ::: Lambda execution COMPLETED."
-		echo "INFO ::: STARTED ::: CLEANUP NAC STACK and dependent resources . . . . . . . . . . . . . . . . . . . . ."
+			((i_cnt++)) || true
 
-		pwd
-		echo "INFO ::: pwd" pwd
-		UNIQUE_ID=$(cat nac_uniqui_id.txt | cut -d - -f4)
-		echo "INFO ::: UNIQUE_ID ::: $UNIQUE_ID "
+			echo " %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% $((i_cnt))"
+			if [ $((i_cnt)) -eq 5 ]; then
+				if [[ -z "${LAST_UPDATE_STATUS}" ]]; then
+					echo "WARN ::: System TimeOut"
+					CLEANUP="Y"
+					break
+			fi
 
-		aws s3 rm --recursive s3://nasuni-share-data-bucket-storage/nmc_api_data_$UNIQUE_ID/ --profile ${AWS_PROFILE}
-		if [ $? -eq 0 ]; then
-				echo "INFO ::: deleted files from nasuni-share-data-bucket-storage bucket and folder nmc_api_data_$UNIQUE_ID"      
-		else
-				echo "INFO ::: Error in deleted files from nasuni-share-data-bucket-storage bucket and folder nmc_api_data_$UNIQUE_ID"
+			fi
+		done
 		fi
 	fi
+	echo "INFO ::: CleanUp Flag: $CLEANUP"
+	###################################################
+	#if [ "$CLEANUP" == "Y" ]; then
+	echo "INFO ::: Lambda execution COMPLETED."
+	echo "INFO ::: STARTED ::: CLEANUP NAC STACK and dependent resources . . . . . . . . . . . . . . . . . . . . ."
+
+	pwd
+	echo "INFO ::: pwd" pwd
+	UNIQUE_ID=$(cat nac_uniqui_id.txt | cut -d - -f4)
+	echo "INFO ::: UNIQUE_ID ::: $UNIQUE_ID "
+
+	aws s3 rm --recursive s3://nasuni-share-data-bucket-storage/nmc_api_data_$UNIQUE_ID/ --profile ${AWS_PROFILE}
+	if [ $? -eq 0 ]; then
+			echo "INFO ::: deleted files from nasuni-share-data-bucket-storage bucket and folder nmc_api_data_$UNIQUE_ID"      
+	else
+			echo "INFO ::: Error in deleted files from nasuni-share-data-bucket-storage bucket and folder nmc_api_data_$UNIQUE_ID"
+	fi
+fi
 
 # ##### RUN terraform destroy to CLEANUP NAC STACK and dependent resources
 
