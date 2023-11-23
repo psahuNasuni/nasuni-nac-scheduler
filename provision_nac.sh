@@ -341,8 +341,7 @@ elif [ "${SERVICE_NAME^^}" = "KENDRA" ];then
 
 
 fi
-echo %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-exit 888
+
 ##### RUN terraform init
 echo "INFO ::: NAC provisioning ::: BEGIN - Executing ::: Terraform init."
 COMMAND="terraform init"
@@ -373,7 +372,7 @@ if [ $? -eq 0 ]; then
 		echo "INFO ::: Latest Processed Snapshot ID (i.e. latest_toc_handle_processed) is : $LATEST_TOC_HANDLE_PROCESSED"
 		generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
 	
-	else
+	elif [ "${SERVICE_NAME^^}" = "KENDRA" ] 
 		echo "INFO ::: Kendra Execution"
 		echo "INFO ::: NAC_Activity : Export Completed. Indexing in Progress"
 		CURRENT_STATE="Export-completed-And-Indexing-In-progress"
@@ -395,7 +394,7 @@ else
 	elif [ "${SERVICE_NAME^^}" = "EXP" ] ; then
 		echo "INFO ::: NAC_Activity : Export Failed"
 		CURRENT_STATE="Export-Failed"
-		generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
+		exit 1
 	else
 		echo "INFO ::: Kendra Execution"
 		echo "INFO ::: NAC_Activity : Export Failed/Indexing Failed"

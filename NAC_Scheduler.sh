@@ -727,7 +727,6 @@ Schedule_CRON_JOB() {
 	
 	if [ "${ANALYTICS_SERVICE^^}" == "EXP" ];then 
 		echo "INFO ::: Scheduling ExportOnly . . .  "
-		ls -alt
 	else
 		###UI deplyment
 		UI_Deployment $ANALYTICS_SERVICE $AWS_REGION $AWS_PROFILE $GITHUB_ORGANIZATION $GIT_BRANCH
