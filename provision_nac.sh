@@ -275,8 +275,7 @@ pwd
 echo "INFO ::: Copy TFVARS file to /$(pwd)/${GIT_REPO_NAME}/${TFVARS_FILE}"
 cp "${TFVARS_FILE}" "${GIT_REPO_NAME}"/
 cd "${GIT_REPO_NAME}"
-pwd  #888
-ls #888
+chmod 755 $(pwd)/*
 NMC_VOLUME_NAME_1=$(echo $NMC_VOLUME_NAME|tr -d '"')
 ANALYTICS_SERVICE_1=$(echo $ANALYTICS_SERVICE|tr -d '"')
 NAC_SCHEDULER_NAME_1=$(echo $NAC_SCHEDULER_NAME|tr -d '"')
@@ -310,6 +309,9 @@ if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ]; then
 	###appending latest_toc_handle_processed to TFVARS_FILE
 	echo "PrevUniFSTOCHandle="\"$LATEST_TOC_HANDLE\" >>$FOLDER_PATH/$TFVARS_FILE
 elif [ "${SERVICE_NAME^^}" = "EXP" ];then 
+	echo "INFO ::: LATEST_TOC_HANDLE" $LATEST_TOC_HANDLE
+	# LATEST_TOC_HANDLE=""
+	FOLDER_PATH=`pwd`
 	echo "PrevUniFSTOCHandle="\"$LATEST_TOC_HANDLE\" >>$FOLDER_PATH/$TFVARS_FILE
 
 elif [ "${SERVICE_NAME^^}" = "KENDRA" ];then 
@@ -338,7 +340,6 @@ elif [ "${SERVICE_NAME^^}" = "KENDRA" ];then
 
 	##appending latest_toc_handle_processed to TFVARS_FILE
 	echo "PrevUniFSTOCHandle="\"$LATEST_TOC_HANDLE\" >>$FOLDER_PATH/$TFVARS_FILE
-
 
 fi
 
@@ -372,7 +373,7 @@ if [ $? -eq 0 ]; then
 		echo "INFO ::: Latest Processed Snapshot ID (i.e. latest_toc_handle_processed) is : $LATEST_TOC_HANDLE_PROCESSED"
 		generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
 	
-	elif [ "${SERVICE_NAME^^}" = "KENDRA" ] 
+	elif [ "${SERVICE_NAME^^}" = "KENDRA" ];then 
 		echo "INFO ::: Kendra Execution"
 		echo "INFO ::: NAC_Activity : Export Completed. Indexing in Progress"
 		CURRENT_STATE="Export-completed-And-Indexing-In-progress"
