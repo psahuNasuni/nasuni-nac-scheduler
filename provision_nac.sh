@@ -194,7 +194,9 @@ if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ]; then
 	generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
 elif [ "${SERVICE_NAME^^}" = "EXP" ]; then
 	echo "INFO ::: Initializing Export Only to Destination Bucket - Export Only.   "
+	JSON_FILE_PATH="~/${NAC_SCHEDULER_NAME}_tracker_ExportOny.json"
 
+	echo "INFO ::: JSON_FILE_PATH:" $JSON_FILE_PATH
 else
 	echo "INFO ::: Initializing Export to Destination Bucket - Kendra_flow . . . .  "
 	INDEX_NAME=$(aws secretsmanager get-secret-value --secret-id $OS_ADMIIN_SECRET --region "${AWS_REGION}" --profile "${AWS_PROFILE}" | jq -r '.SecretString' | jq -r '.index_name')
@@ -230,7 +232,6 @@ else
 	
 fi
 pwd
-######Req for generate_tracker_json for kendra 
 
 echo "INFO ::: current user :-"`whoami`
 ########## Download NAC Provisioning Code from GitHub ##########
@@ -272,11 +273,10 @@ fi
 pwd
 ########################### Completed - Git Clone  ###############################################################
 echo "INFO ::: Copy TFVARS file to /$(pwd)/${GIT_REPO_NAME}/${TFVARS_FILE}"
-# cp "$NMC_VOLUME_NAME/${TFVARS_FILE}" $(pwd)/"${GIT_REPO_NAME}"/
 cp "${TFVARS_FILE}" "${GIT_REPO_NAME}"/
 cd "${GIT_REPO_NAME}"
-pwd
-
+pwd  #888
+ls #888
 NMC_VOLUME_NAME_1=$(echo $NMC_VOLUME_NAME|tr -d '"')
 ANALYTICS_SERVICE_1=$(echo $ANALYTICS_SERVICE|tr -d '"')
 NAC_SCHEDULER_NAME_1=$(echo $NAC_SCHEDULER_NAME|tr -d '"')
@@ -284,7 +284,7 @@ NAC_SCHEDULER_NAME_1=$(echo $NAC_SCHEDULER_NAME|tr -d '"')
 ###JSON_FILE_PATH="$HOME/TrackerJson/${NAC_SCHEDULER_NAME_1}_tracker.json"
 
 ######Req for generate_tracker_json for kendra if condition
-if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ] || [ "${SERVICE_NAME^^}" = "EXP" ]; then
+if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ]; then
 	echo "INFO ::: tracker_json for OpenSearch_flow $JSON_FILE_PATH "
 	LATEST_TOC_HANDLE=""
 	if [ -f "$JSON_FILE_PATH" ] ; then
@@ -309,8 +309,10 @@ if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ] || [ "${SERV
 
 	###appending latest_toc_handle_processed to TFVARS_FILE
 	echo "PrevUniFSTOCHandle="\"$LATEST_TOC_HANDLE\" >>$FOLDER_PATH/$TFVARS_FILE
+elif [ "${SERVICE_NAME^^}" = "EXP" ];then 
+	echo "PrevUniFSTOCHandle="\"$LATEST_TOC_HANDLE\" >>$FOLDER_PATH/$TFVARS_FILE
 
-else
+elif [ "${SERVICE_NAME^^}" = "KENDRA" ];then 
 	echo "INFO ::: Kendra stuff"
 	echo "INFO ::: tracker_json for Kendra_flow $JSON_FILE_PATH "
 	LATEST_TOC_HANDLE=""
@@ -339,6 +341,8 @@ else
 
 
 fi
+echo %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+exit 888
 ##### RUN terraform init
 echo "INFO ::: NAC provisioning ::: BEGIN - Executing ::: Terraform init."
 COMMAND="terraform init"
