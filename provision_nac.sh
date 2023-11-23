@@ -182,7 +182,7 @@ if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ]; then
 	if [ -f "$JSON_FILE_PATH" ] ; then
 		TRACEPATH="${NMC_VOLUME_NAME}_${ANALYTICS_SERVICE}"
 		TRACKER_JSON=$(cat $JSON_FILE_PATH)
-		echo "Tracker json" $TRACKER_JSON
+		echo "INFO ::: Tracker json" $TRACKER_JSON
 		LATEST_TOC_HANDLE_PROCESSED=$(echo $TRACKER_JSON | jq -r .INTEGRATIONS.\"$TRACEPATH\"._NAC_activity.latest_toc_handle_processed)
 		#if [ -z "$LATEST_TOC_HANDLE_PROCESSED" -a "$LATEST_TOC_HANDLE_PROCESSED" == " " ]; then	
 		if [ -z "$LATEST_TOC_HANDLE_PROCESSED" ] || [ "$LATEST_TOC_HANDLE_PROCESSED" == " " ] || [ "$LATEST_TOC_HANDLE_PROCESSED" == "null" ]; then	
@@ -289,17 +289,17 @@ if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ] || [ "${SERV
 	LATEST_TOC_HANDLE=""
 	if [ -f "$JSON_FILE_PATH" ] ; then
 		TRACEPATH="${NMC_VOLUME_NAME_1}_${ANALYTICS_SERVICE_1}"
-		echo $TRACEPATH
+		echo "INFO ::: TracePath of Tracker Json : $TRACEPATH"
 		TRACKER_JSON=$(cat $JSON_FILE_PATH)
-		echo "Tracker json" $TRACKER_JSON
+		echo "INFO ::: Tracker json" $TRACKER_JSON
 		LATEST_TOC_HANDLE=$(echo $TRACKER_JSON | jq -r .INTEGRATIONS.\"$TRACEPATH\"._NAC_activity.latest_toc_handle_processed)
 		if [ "$LATEST_TOC_HANDLE" =  "-" ] ; then
 			LATEST_TOC_HANDLE=""
 		fi
-		echo "LATEST_TOC_HANDLE: $LATEST_TOC_HANDLE"
+		echo "INFO ::: LATEST_TOC_HANDLE: $LATEST_TOC_HANDLE"
 	else
 		LATEST_TOC_HANDLE=""
-		echo "ERROR:::Tracker JSON folder Not present"
+		echo "ERROR ::: Tracker JSON folder Not present"
 	fi
 
 	echo "INFO ::: LATEST_TOC_HANDLE" $LATEST_TOC_HANDLE
@@ -318,15 +318,15 @@ else
 		TRACEPATH="${NMC_VOLUME_NAME_1}_${ANALYTICS_SERVICE_1}"
 		echo $TRACEPATH
 		TRACKER_JSON=$(cat $JSON_FILE_PATH)
-		echo "Tracker json" $TRACKER_JSON
+		echo "INFO ::: Tracker json" $TRACKER_JSON
 		LATEST_TOC_HANDLE=$(echo $TRACKER_JSON | jq -r .INTEGRATIONS.\"$TRACEPATH\"._NAC_activity.latest_toc_handle_processed)
 		if [ "$LATEST_TOC_HANDLE" =  "-" ] ; then
 			LATEST_TOC_HANDLE=""
 		fi
-		echo "LATEST_TOC_HANDLE: $LATEST_TOC_HANDLE"
+		echo "INFO ::: LATEST_TOC_HANDLE: $LATEST_TOC_HANDLE"
 	else
 		LATEST_TOC_HANDLE=""
-		echo "ERROR:::Tracker JSON folder Not present"
+		echo "ERROR ::: Tracker JSON folder Not present"
 	fi
 
 	echo "INFO ::: LATEST_TOC_HANDLE" $LATEST_TOC_HANDLE
@@ -356,14 +356,14 @@ if [ $? -eq 0 ]; then
 	######Req for generate_tracker_json for kendra if condition
 	if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ] ; then
 
-		echo "NAC_Activity : Export Completed. Indexing in Progress"
+		echo "INFO ::: NAC_Activity : Export Completed. Indexing in Progress"
 		CURRENT_STATE="Export-completed-And-Indexing-In-progress"
 		LATEST_TOC_HANDLE_PROCESSED=$(terraform output -raw latest_toc_handle_processed)
 		echo "INFO ::: LATEST_TOC_HANDLE_PROCESSED for NAC Discovery is : $LATEST_TOC_HANDLE_PROCESSED"
 		generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
 	elif [ "${SERVICE_NAME^^}" = "EXP" ] ; then
 
-		echo "NAC_Activity : Export Completed."
+		echo "INFO ::: NAC_Activity : Export Completed."
 		CURRENT_STATE="Export-completed"
 		LATEST_TOC_HANDLE_PROCESSED=$(terraform output -raw latest_toc_handle_processed)
 		echo "INFO ::: Latest Processed Snapshot ID (i.e. latest_toc_handle_processed) is : $LATEST_TOC_HANDLE_PROCESSED"
@@ -384,17 +384,17 @@ else
 	######Req for generate_tracker_json for kendra if condition
 	if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ]; then
 
-		echo "NAC_Activity : Export Failed/Indexing Failed"
+		echo "INFO ::: NAC_Activity : Export Failed/Indexing Failed"
 		CURRENT_STATE="Export-Failed-And-Indexing-Failed"
 		generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
 	##exit 1
 	elif [ "${SERVICE_NAME^^}" = "EXP" ] ; then
-		echo "NAC_Activity : Export Failed"
+		echo "INFO ::: NAC_Activity : Export Failed"
 		CURRENT_STATE="Export-Failed"
 		generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
 	else
-		echo "Kendra Execution"
-		echo "NAC_Activity : Export Failed/Indexing Failed"
+		echo "INFO ::: Kendra Execution"
+		echo "INFO ::: NAC_Activity : Export Failed/Indexing Failed"
 		CURRENT_STATE="Export-Failed-And-Indexing-Failed"
 		generate_tracker_json_kendra $INDEX_NAME $INDEX_ID $DEFAULT_URL $FREQUENCY $USER_SECRET  $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME $KENDRA_URL
 
@@ -406,7 +406,7 @@ if [ "${SERVICE_NAME^^}" = "EXP" ] ; then
 	echo "INFO ::: EXPORT Completed"
 	exit 0
 else
-	echo "NAC_Activity : Indexing Completed"
+	echo "INFO ::: NAC_Activity : Indexing Completed"
 	MOST_RECENT_RUN=$(date "+%Y:%m:%d-%H:%M:%S")
 	CURRENT_STATE="Indexing-Completed"
 
@@ -417,7 +417,7 @@ else
 	if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ]; then
 		generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
 	else
-		echo "Kendra execution"
+		echo "INFO ::: Kendra execution"
 		generate_tracker_json_kendra $INDEX_NAME $INDEX_ID $DEFAULT_URL $FREQUENCY $USER_SECRET  $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME $KENDRA_URL
 	fi	   
 	######Req for generate_tracker_json for kendra if condition
@@ -444,7 +444,7 @@ else
 		else
 			while [ "$LAST_UPDATE_STATUS" != "InProgress" ]; do
 				LAST_UPDATE_STATUS=$(aws lambda get-function-configuration --function-name "$DISCOVERY_LAMBDA_NAME" --region "${AWS_REGION}" | jq -r '.LastUpdateStatus')
-				echo "LAST_UPDATE_STATUS ::: $LAST_UPDATE_STATUS"
+				echo "INFO ::: LAST_UPDATE_STATUS ::: $LAST_UPDATE_STATUS"
 				if [ "$LAST_UPDATE_STATUS" == "Successful" ]; then
 					echo "INFO ::: Lambda execution COMPLETED. Preparing for cleanup of NAC Stack and dependent resources . . . . . . . . . . "
 					CLEANUP="Y"
@@ -460,7 +460,6 @@ else
 			fi
 			((i_cnt++)) || true
 
-			echo " %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% $((i_cnt))"
 			if [ $((i_cnt)) -eq 5 ]; then
 				if [[ -z "${LAST_UPDATE_STATUS}" ]]; then
 					echo "WARN ::: System TimeOut"
