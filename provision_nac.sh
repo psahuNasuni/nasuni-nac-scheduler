@@ -348,6 +348,7 @@ echo "INFO ::: NAC provisioning ::: BEGIN - Executing ::: Terraform init."
 COMMAND="terraform init"
 $COMMAND
 chmod 755 $(pwd)/*
+# ls -alt
 # exit 1
 echo "INFO ::: NAC provisioning ::: FINISH - Executing ::: Terraform init."
 echo "INFO ::: NAC provisioning ::: BEGIN - Executing ::: Terraform Apply . . . . . . . . . . . "
