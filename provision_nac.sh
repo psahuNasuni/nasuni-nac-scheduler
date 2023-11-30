@@ -38,6 +38,7 @@ START=$(date +%s)
 				"git_branch") GIT_BRANCH="$value" ;;
 				"user_vpc_id") USER_VPC_ID="$value" ;;
 				"user_subnet_id") USER_SUBNET_ID="$value" ;;
+				"user_secret") USER_SECRETFROM_TFVARS="$value" ;;
 				"use_private_ip") USE_PRIVATE_IP="$value" ;;
 				"frequency") FREQUENCY="$value" ;;
 				"nac_scheduler_name") NAC_SCHEDULER_NAME="$value" ;;
@@ -279,6 +280,7 @@ chmod 755 $(pwd)/*
 NMC_VOLUME_NAME_1=$(echo $NMC_VOLUME_NAME|tr -d '"')
 ANALYTICS_SERVICE_1=$(echo $ANALYTICS_SERVICE|tr -d '"')
 NAC_SCHEDULER_NAME_1=$(echo $NAC_SCHEDULER_NAME|tr -d '"')
+RND_IN=$(( $RANDOM % 1000000 )); 
 
 ###JSON_FILE_PATH="$HOME/TrackerJson/${NAC_SCHEDULER_NAME_1}_tracker.json"
 
@@ -311,6 +313,9 @@ if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ]; then
 elif [ "${SERVICE_NAME^^}" = "EXP" ];then 
 	echo "INFO ::: LATEST_TOC_HANDLE" $LATEST_TOC_HANDLE
 	# LATEST_TOC_HANDLE=""
+	echo "RndIN="\"$RND_IN\" >>$FOLDER_PATH/$TFVARS_FILE
+	python3 ../fetch_volume_data_from_nmc_api.py $USER_SECRETFROM_TFVARS $AWS_REGION $NMC_VOLUME_NAME_1 $RND_IN && echo nasuni-labs-internal-$RND_IN > nac_uniqui_id.txt
+
 	FOLDER_PATH=`pwd`
 	echo "PrevUniFSTOCHandle="\"$LATEST_TOC_HANDLE\" >>$FOLDER_PATH/$TFVARS_FILE
 
