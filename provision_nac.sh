@@ -319,7 +319,7 @@ elif [ "${SERVICE_NAME^^}" = "EXP" ];then
 
 	FOLDER_PATH=`pwd`
 	echo "PrevUniFSTOCHandle="\"$LATEST_TOC_HANDLE\" >$FOLDER_PATH/PreviousTocHandle.txt
-
+	echo "PrevUniFSTOCHandle="\"$LATEST_TOC_HANDLE\" >>$FOLDER_PATH/$TFVARS_FILE
 elif [ "${SERVICE_NAME^^}" = "KENDRA" ];then 
 	echo "INFO ::: Kendra stuff"
 	echo "INFO ::: tracker_json for Kendra_flow $JSON_FILE_PATH "
