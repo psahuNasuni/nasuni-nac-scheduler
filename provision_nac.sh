@@ -259,7 +259,7 @@ echo "INFO ::: GIT_REPO : $GIT_REPO"
 echo "INFO ::: GIT_REPO_NAME : $GIT_REPO_NAME"
 pwd
 echo "INFO ::: Deleting the Directory: ${GIT_REPO_NAME}"
-#rm -rf "${GIT_REPO_NAME}"
+rm -rf "${GIT_REPO_NAME}"
 pwd
 COMMAND="git clone -b $GIT_BRANCH $GIT_REPO"
 $COMMAND
@@ -318,8 +318,7 @@ elif [ "${SERVICE_NAME^^}" = "EXP" ];then
 	python3 $(pwd)/fetch_volume_data_from_nmc_api.py $USER_SECRETFROM_TFVARS_1 $AWS_REGION $NMC_VOLUME_NAME_1 $RND_IN && echo nasuni-labs-internal-$RND_IN > nac_uniqui_id.txt
 
 	FOLDER_PATH=`pwd`
-#echo "$LATEST_TOC_HANDLE $FOLDER_PATH"
-#	echo "PrevUniFSTOCHandle="\"$LATEST_TOC_HANDLE\" >>$FOLDER_PATH/$TFVARS_FILE
+	echo "PrevUniFSTOCHandle="\"$LATEST_TOC_HANDLE\" >$FOLDER_PATH/PreviousTocHandle.txt
 
 elif [ "${SERVICE_NAME^^}" = "KENDRA" ];then 
 	echo "INFO ::: Kendra stuff"
