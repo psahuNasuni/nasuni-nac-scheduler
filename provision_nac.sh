@@ -314,7 +314,11 @@ if [ "${SERVICE_NAME^^}" = "ES" ] || [ "${SERVICE_NAME^^}" = "OS" ]; then
 elif [ "${SERVICE_NAME^^}" = "EXP" ];then 
 	echo "INFO ::: LATEST_TOC_HANDLE" $LATEST_TOC_HANDLE
 	# LATEST_TOC_HANDLE=""
-	echo "RndIN="\"$RND_IN\" >>$FOLDER_PATH/$TFVARS_FILE
+
+	TFVARS_FILE="${NMC_VOLUME_NAME}_${SERVICE_NAME}.tfvars"
+	pwd
+	echo "RndIN="\"$RND_IN\" >>$TFVARS_FILE
+
 	python3 $(pwd)/fetch_volume_data_from_nmc_api.py $USER_SECRETFROM_TFVARS_1 $AWS_REGION $NMC_VOLUME_NAME_1 $RND_IN && echo nasuni-labs-internal-$RND_IN > nac_uniqui_id.txt
 
 	FOLDER_PATH=`pwd`
