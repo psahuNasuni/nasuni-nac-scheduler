@@ -378,10 +378,10 @@ if [ $? -eq 0 ]; then
 		generate_tracker_json $OS_URL $KIBANA_URL $DEFAULT_URL $FREQUENCY $USER_SECRET $CREATED_BY $CREATED_ON $TRACKER_NMC_VOLUME_NAME $ANALYTICS_SERVICE $MOST_RECENT_RUN $CURRENT_STATE $LATEST_TOC_HANDLE_PROCESSED $NAC_SCHEDULER_NAME
 	elif [ "${SERVICE_NAME^^}" = "EXP" ] ; then
 
-		echo "INFO ::: NAC_Activity : Export Completed."
 		CURRENT_STATE="Export-completed"
 		LATEST_TOC_HANDLE_PROCESSED=$(terraform output -raw latest_toc_handle_processed)
 		echo "INFO ::: Latest Processed Snapshot ID (i.e. latest_toc_handle_processed) is : $LATEST_TOC_HANDLE_PROCESSED"
+		echo "INFO ::: NAC_Activity : Export In Progress . . . . ."
                
 	elif [ "${SERVICE_NAME^^}" = "KENDRA" ];then 
 		echo "INFO ::: Kendra Execution"
@@ -418,6 +418,17 @@ fi
 sleep 300
 if [ "${SERVICE_NAME^^}" = "EXP" ] ; then
 	echo "INFO ::: EXPORT Completed"
+	echo "INFO ::: STARTED ::: CLEANUP NAC STACK and dependent resources . . . . . . . . . . . . . . . . . . . . ."
+	
+	# ##### RUN terraform destroy to CLEANUP NAC STACK and dependent resources
+	COMMAND="terraform destroy -var-file=${TFVARS_FILE} -auto-approve"
+	$COMMAND
+	echo "INFO ::: COMPLETED ::: CLEANUP NAC STACK and dependent resources ! ! ! ! "
+
+	END=$(date +%s)
+	secs=$((END - START))
+	DIFF=$(printf '%02dh:%02dm:%02ds\n' $((secs/3600)) $((secs%3600/60)) $((secs%60)))
+	echo "INFO ::: Total execution Time ::: $DIFF"
 	exit 0
 else
 	echo "INFO ::: NAC_Activity : Indexing Completed"
